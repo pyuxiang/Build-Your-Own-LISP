@@ -27,37 +27,17 @@
     #include <editline/history.h>
 #endif
 
-
-// Setup mapped list here?
-#define NUM_LANGUAGES 3
-char LANGUAGES[NUM_LANGUAGES][10] = {"polish", "decimal", "doge"};
-
-parser_set_t *language_prompter(void) {
-
-    puts("LISP version 0.2");
-    printf("Available languages:");
-    int i;
-    for (i = 0; i < NUM_LANGUAGES; i++) {
-        printf(" %s", LANGUAGES[i]);
-    }
-    char *input = readline("\nSpecify language: ");
-
-    if (strcmp(input, LANGUAGES[0]) == 0) {
-        return polish_notation_set();
-    } else if (strcmp(input, LANGUAGES[1]) == 0) {
-        return decimal_set();
-    } else if (strcmp(input, LANGUAGES[2]) == 0) {
-        return doge_set();
-    } else {
-        puts("Unknown language!");
-        return NULL;
-    }
+int eval(mpc_val_t *output) {
+    mpc_ast_print(output);
+    return 0;
 }
 
+// Evaluation of mathematical results with polish notation
 int main(int argc, char **argv) {
 
     // Language specification
-    parser_set_t *parser_set = language_prompter();
+    puts("LISP version 0.7");
+    parser_set_t *parser_set = polish_notation_set();
     if (parser_set == NULL) {
         exit(1);
     }
@@ -74,7 +54,8 @@ int main(int argc, char **argv) {
         mpc_result_t r;
         if (mpc_parse("<stdin>", input, parser_set->parser, &r)) {
             // Interpretation successful
-            mpc_ast_print(r.output);
+            long result = eval(r.output);
+            printf("%li\n", result);
             mpc_ast_delete(r.output);
         } else {
             mpc_err_print(r.error);
