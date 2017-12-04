@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include "mpc.h"
 #include "language_set.h"
+#include "mpc_ast_misc.h"
 
 #ifdef _WIN32
     #include <string.h>
@@ -49,8 +50,9 @@ int main(int argc, char **argv) {
         mpc_result_t r;
         if (mpc_parse("<stdin>", input, parser_set->parser, &r)) {
             // Interpretation successful
-            printf("%li\n", polish_eval(r.output));
-            // mpc_ast_print(r.output);
+            printf("Number of nodes = %d\n", count_leaves(r.output));
+            long result = polish_eval(r.output);
+            printf("%li\n", result);
             mpc_ast_delete(r.output);
         } else {
             mpc_err_print(r.error);
