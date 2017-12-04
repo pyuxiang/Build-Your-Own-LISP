@@ -27,10 +27,11 @@ $(ODIR)/%.o: $(LDIR)/%.c
 
 # Normal build
 _OBJ = main.o readline_history.o mpc.o \
-	lang_parser_set.o lang_set/lang_set_polish.o
+	lang_parser_set.o lang_set/lang_set_polish.o \
+	lang_set/lang_set_polish_error_handler.o
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ)) # accesses object directory
 
-parser: $(OBJ)
+main: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 clean:

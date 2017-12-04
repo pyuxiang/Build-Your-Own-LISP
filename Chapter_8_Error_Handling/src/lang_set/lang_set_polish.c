@@ -31,11 +31,13 @@ parser_set_t *polish_notation_set(void) {
 
 // Refer to mpc.h for mpc_ast_t defintion
 // Treating all nodes as expressions
-long polish_eval(mpc_ast_t *node) {
+lval polish_eval(mpc_ast_t *node) {
 
     // All nodes tagged with number is definitely a primitive number
     if (strstr(node->tag, "number")) {
-        return atoi(node->contents);
+        errno = 0; // reset value to 0, <errno.h> included in error_handler
+        long value = strtol(node->contents, NULL, 10); // robust ver of atoi
+        return (errno != ERANGE) ? lval_num(value) : lval_err(LERR_BAD_NUM);
     }
 
     // op guaranteed to be second child,
@@ -43,7 +45,7 @@ long polish_eval(mpc_ast_t *node) {
     char *op = node->children[1]->contents;
     /* Accessing ptr-ptr type via indexing available since type defined */
 
-    long result;
+    lval result;
     int i;
     // Alternatively, while(strstr(t->children[i]->tag, "expr"))
     // Left-right precedence of operations
@@ -62,25 +64,69 @@ long polish_eval(mpc_ast_t *node) {
     return result;
 }
 
-long polish_eval_op(char *op, long arg1, long arg2) {
-    if (strcmp(op, "+") == 0) { return arg1 + arg2; }
-    if (strcmp(op, "-") == 0) { return arg1 - arg2; }
-    if (strcmp(op, "*") == 0) { return arg1 * arg2; }
-    if (strcmp(op, "/") == 0) { return arg1 / arg2; }
-    if (strcmp(op, "%") == 0) { return arg1 % arg2; }
-    if (strcmp(op, "^") == 0) {
-        long result = 1;
-        for (; arg2 > 0; arg2--) {
-            result *= arg1;
+
+
+
+lval polish_eval_op(char *op, lval arg1, lval arg2) {
+
+    // Rethrow errors
+    if (arg1.type == LVAL_ERR) { return arg1; }
+    if (arg2.type == LVAL_ERR) { return arg2; }
+
+    // Arithmetic
+    if (strcmp(op, "+") == 0) { return lval_num(arg1.num + arg2.num); }
+    if (strcmp(op, "-") == 0) { return lval_num(arg1.num - arg2.num); }
+    if (strcmp(op, "*") == 0) {
+        // Exceed long value bounds
+        if (abs(arg1.num) > (LONG_MAX/abs(arg2.num))) {
+            return lval_err(LERR_BAD_NUM);
         }
-        return result;
+        return lval_num(arg1.num * arg2.num);
     }
-    if (strcmp(op, "min") == 0) { return (arg1 < arg2) ? arg1 : arg2; }
-    if (strcmp(op, "max") == 0) { return (arg1 > arg2) ? arg1 : arg2; }
-    return 0; // Evaluation fail, should be captured during error handling
+    if (strcmp(op, "/") == 0) {
+        return arg2.num == 0
+            ? lval_err(LERR_DIV_ZERO)
+            : lval_num(arg1.num / arg2.num);
+    }
+    if (strcmp(op, "%") == 0) {
+        return arg2.num == 0
+            ? lval_err(LERR_DIV_ZERO)
+            : lval_num(arg1.num % arg2.num);
+    }
+    if (strcmp(op, "^") == 0) {
+        // Negative exponents not supported
+        if (arg2.num < 0) { return lval_err(LERR_BAD_NUM); }
+
+        long result = 1; // Note 0^0 is defined as 1
+        for (; arg2.num > 0; arg2.num--) {
+            // Exceed long value bounds
+            if (abs(result) > (LONG_MAX/abs(arg1.num))) {
+                return lval_err(LERR_BAD_NUM);
+            }
+            result *= arg1.num;
+        }
+        return lval_num(result);
+    }
+    if (strcmp(op, "min") == 0) {
+        return lval_num((arg1.num < arg2.num) ? arg1.num : arg2.num);
+    }
+    if (strcmp(op, "max") == 0) {
+        return lval_num((arg1.num > arg2.num) ? arg1.num : arg2.num);
+    }
+    return lval_err(LERR_BAD_OP); // Op evaluation fail
 }
 
-long polish_eval_op_single(char *op, long result) {
-    if (strcmp(op, "-") == 0) { return -1 * result; }
-    return result; // Single arg to op does not exist
+
+
+
+lval polish_eval_op_single(char *op, lval result) {
+
+    // Rethrow error
+    if (result.type == LVAL_ERR) { return result; }
+
+    if (strcmp(op, "+") == 0) { return result; }
+    if (strcmp(op, "-") == 0) { return lval_num(-1 * result.num); }
+    if (strcmp(op, "max") == 0) { return result; }
+    if (strcmp(op, "min") == 0) { return result; }
+    return lval_err(LERR_BAD_ARGS); // Single arg to op invalid
 }
