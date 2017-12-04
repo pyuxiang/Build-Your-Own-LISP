@@ -9,7 +9,9 @@ ODIR = obj
 LDIR = lib
 
 CC = gcc
-CFLAGS = -std=c99 -Wall -I $(IDIR) -I $(LDIR)
+IFLAGS = -I $(IDIR) -I $(IDIR)/lang_set \
+	-I $(SDIR) -I $(SDIR)/lang_set -I $(LDIR)
+CFLAGS = -std=c99 -Wall $(IFLAGS)
 
 # -o $@ specifies object files to pass to left argument
 # $< specifies first argument
@@ -24,28 +26,27 @@ $(ODIR)/%.o: $(LDIR)/%.c
 
 
 # Normal build
-_OBJ = language_parser.o language_set.o mpc.o
+_OBJ = main.o readline_history.o mpc.o \
+	lang_parser_set.o lang_set/lang_set_polish.o
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ)) # accesses object directory
 
 parser: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
-
-
-# Experimenting with bonus marks stuff
-_SANDBOX_OBJ = language_parser_sandbox.o language_set.o mpc.o mpc_ast_misc.o
-SANDBOX_OBJ = $(patsubst %, $(ODIR)/%, $(_SANDBOX_OBJ))
-
-parser_sandbox: $(SANDBOX_OBJ)
-	$(CC) -o $@ $^ $(CFLAGS)
-
-
+clean:
+	make parser
+	make clear
 
 # del for cmd.exe, rm for bash shell
 # Calling powershell from make.exe to execute rm command
-clean:
+clear:
 	powershell rm $(ODIR)/*.o
+	powershell rm $(ODIR)/lang_set/*.o
 
-clean_all:
-	make clean
+clear_all:
+	make clear
 	del *.exe
+
+# To consult this later on subdirectories:
+# https://stackoverflow.com/questions/231229/how-to-generate-a-makefile-with-source-in-sub-directories-using-just-one-makefil
+# Also, to add rule to create subdirectories if they do not exist

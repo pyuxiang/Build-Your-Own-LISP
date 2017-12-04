@@ -1,35 +1,4 @@
-#include "language_set.h"
-#include <string.h>
-#include <stdlib.h>
-
-parser_set_t *create_parser_set(int argc, ...) {
-    va_list valist;
-    va_start(valist, argc);
-
-    int i;
-    parser_set_t *next = NULL;
-    for (i = 0; i < argc; i++) {
-        parser_set_t *new_node = malloc(sizeof(parser_set_t));
-        if (new_node == NULL) {
-            printf("Memory failure during node creation!\n");
-            exit(1);
-        }
-        new_node->parser = va_arg(valist, mpc_parser_t*);
-        new_node->next = (next == NULL) ? NULL : next; // initialise!
-        next = new_node;
-    }
-    va_end(valist);
-    return next; // Last argument must be the LISP itself
-}
-
-void clear_parser_set(parser_set_t *parser_set) {
-    parser_set_t *next;
-    while (parser_set != NULL) {
-        next = parser_set->next;
-        free(parser_set);
-        parser_set = next;
-    }
-}
+#include "lang_set_polish.h"
 
 parser_set_t *polish_notation_set(void) {
 
@@ -114,58 +83,4 @@ long polish_eval_op(char *op, long arg1, long arg2) {
 long polish_eval_op_single(char *op, long result) {
     if (strcmp(op, "-") == 0) { return -1 * result; }
     return result; // Single arg to op does not exist
-}
-
-/* Decimals
- * digit   : <nonzero> | <zero>;
- * integer : <zero> | (<nonzero> <digit>*);
- * decimal : <integer> '.' <digit>* <nonzero>;
- */
-
-parser_set_t *decimal_set(void) {
-
-    mpc_parser_t *Integer = mpc_new("integer");
-    mpc_parser_t *Decimal = mpc_new("decimal");
-    mpc_parser_t *Number = mpc_new("number");
-    mpc_parser_t *Lisp = mpc_new("lisp");
-
-    // Put more specific rules in front (left-right precedence)
-    mpca_lang(MPCA_LANG_DEFAULT,
-        "                                      \
-            integer : /-?[1-9][0-9]*/ | /0/ ;  \
-            decimal : <integer> '.' /[0-9]+/ ; \
-            number: <decimal> | <integer> ;    \
-            lisp : /^/ <number> /$/ ;          \
-        ",
-        Integer, Decimal, Number, Lisp);
-
-    return create_parser_set(4, Integer, Decimal, Number, Lisp);
-}
-
-
-// DOGE LANGUAGE
-/* noun      : "LISP" | "language" | "book" | "build" | "c" ;
- * adjective : "wow" | "many" | "so" | "such";
- * phrase    : <adjective> <noun>;
- * doge      : <phrase>*;
- */
-
-parser_set_t *doge_set(void) {
-
-    mpc_parser_t *Noun = mpc_new("noun");
-    mpc_parser_t *Adjective = mpc_new("adjective");
-    mpc_parser_t *Phrase = mpc_new("phrase");
-    mpc_parser_t *Doge = mpc_new("doge");
-
-    // Put more specific rules in front (left-right precedence)
-    mpca_lang(MPCA_LANG_DEFAULT,
-        "                                                                   \
-            noun : \"LISP\" | \"language\" | \"book\" | \"build\" | \"c\";  \
-            adjective : \"wow\" | \"many\" | \"so\" | \"such\" ;            \
-            phrase: <adjective> <noun> ;                                    \
-            doge : /^/ <phrase>* /$/ ;                                      \
-        ",
-        Noun, Adjective, Phrase, Doge);
-
-    return create_parser_set(4, Noun, Adjective, Phrase, Doge);
 }
