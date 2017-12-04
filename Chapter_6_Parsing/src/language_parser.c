@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include "mpc.h"
-#include "6_lang_set.h"
+#include "language_set.h"
 
 #ifdef _WIN32
     #include <string.h>
@@ -28,34 +28,47 @@
 #endif
 
 
+// Setup mapped list here?
+#define NUM_LANGUAGES 3
+char LANGUAGES[NUM_LANGUAGES][10] = {"polish", "decimal", "doge"};
+
+parser_set_t *language_prompter(void) {
+
+    puts("LISP version 0.2");
+    printf("Available languages:");
+    int i;
+    for (i = 0; i < NUM_LANGUAGES; i++) {
+        printf(" %s", LANGUAGES[i]);
+    }
+    char *input = readline("\nSpecify language: ");
+
+    if (strcmp(input, LANGUAGES[0]) == 0) {
+        return polish_notation_set();
+    } else if (strcmp(input, LANGUAGES[1]) == 0) {
+        return decimal_set();
+    } else if (strcmp(input, LANGUAGES[2]) == 0) {
+        return doge_set();
+    } else {
+        puts("Unknown language!");
+        return NULL;
+    }
+}
 
 int main(int argc, char **argv) {
 
     // Language specification
-    parser_set_t *parser_set;
-    char *input = readline("Specify language: ");
-
-    if (strcmp(input, "polish") == 0) {
-        parser_set = polish_notation_set();
-    } else if (strcmp(input, "decimal") == 0) {
-        parser_set = decimal_set();
-    } else if (strcmp(input, "doge") == 0) {
-        parser_set = doge_set();
-    } else {
-        puts("Unknown language!");
+    parser_set_t *parser_set = language_prompter();
+    if (parser_set == NULL) {
         exit(1);
     }
 
     // REPL
-    printf("LISP %s (v0.2)\n", input);
     while (1) {
         char *input = readline(">>> ");
         add_history(input);
 
         // Exit program
-        if (strcmp(input, ":q") == 0) {
-            break;
-        }
+        if (strcmp(input, ":q") == 0) { break; }
 
         // Parsing
         mpc_result_t r;
