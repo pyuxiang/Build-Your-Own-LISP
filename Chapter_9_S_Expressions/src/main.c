@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
         mpc_result_t r;
         if (mpc_parse("<stdin>", input, parser_set->parser, &r)) {
             // Interpretation successful
-            lval *value = lval_read(r.output);
+            lval *value = lval_eval(lval_read(r.output));
             lval_println(value);
             lval_free(value);
             mpc_ast_delete(r.output);
