@@ -18,20 +18,36 @@ typedef struct lval {
 } lval;
 
 // lval types
-enum { LVAL_NUM, LVAL_ERR, LVAL_SYM, LVAL_SEXPR };
+enum { LVAL_NUM, LVAL_ERR, LVAL_SYM, LVAL_SEXPR, LVAL_QEXPR };
 
 // Constructors and deconstructors
 lval *lval_num(long);
 lval *lval_err(char *);
 lval *lval_sym(char *);
 lval *lval_sexpr(void);
+lval *lval_qexpr(void);
 lval *lval_add(lval *, lval *);
 void lval_free(lval *);
 
 // Display
+void lval_expr_print(lval *, char, char);
 void lval_print(lval *);
 void lval_println(lval *);
 
-// Read-Evaluate
+// Read
 lval *lval_read(mpc_ast_t *);
-lval *eval_op(char *, lval *);
+
+// Evaluate (sexpr)
+lval *lval_eval(lval *);
+lval *builtin(lval *, char *);
+lval *builtin_op(lval *, char *);
+
+// Evaluate qexpr
+#define LASSERT(args, cond, err) \
+    if (!(cond)) { lval_free(args); return lval_err(err); }
+lval *builtin_head(lval *);
+lval *builtin_tail(lval *);
+lval *builtin_list(lval *);
+lval *builtin_eval(lval *);
+lval *builtin_join(lval *);
+lval *lval_join(lval *, lval *);
