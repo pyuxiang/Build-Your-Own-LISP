@@ -35,7 +35,7 @@ main: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 clean:
-	make parser
+	make main
 	make clear
 
 # del for cmd.exe, rm for bash shell
