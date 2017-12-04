@@ -6,11 +6,9 @@
 int main(int argc, char **argv) {
 
     // Language specification
-    puts("LISP version 0.8");
+    puts("LISP version 0.9");
     parser_set_t *parser_set = polish_notation_set();
-    if (parser_set == NULL) {
-        exit(1);
-    }
+    if (parser_set == NULL) { exit(1); }
 
     // REPL
     while (1) {
@@ -22,8 +20,9 @@ int main(int argc, char **argv) {
         mpc_result_t r;
         if (mpc_parse("<stdin>", input, parser_set->parser, &r)) {
             // Interpretation successful
-            lval_println(polish_eval(r.output));
-            // mpc_ast_print(r.output);
+            lval *value = lval_read(r.output);
+            lval_println(value);
+            lval_free(value);
             mpc_ast_delete(r.output);
         } else {
             mpc_err_print(r.error);
