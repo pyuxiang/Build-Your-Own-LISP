@@ -10,6 +10,9 @@ int main(int argc, char **argv) {
     parser_set_t *parser_set = polish_notation_set();
     if (parser_set == NULL) { exit(1); }
 
+    lenv *env = lenv_new();
+    lenv_add_builtins(env);
+
     // REPL
     while (1) {
         char *input = readline(">>> ");
@@ -20,7 +23,7 @@ int main(int argc, char **argv) {
         mpc_result_t r;
         if (mpc_parse("<stdin>", input, parser_set->parser, &r)) {
             // Interpretation successful
-            lval *value = lval_eval(lval_read(r.output));
+            lval *value = lval_eval(env, lval_read(r.output));
             lval_println(value);
             lval_free(value);
             mpc_ast_delete(r.output);
@@ -30,6 +33,8 @@ int main(int argc, char **argv) {
         }
         free(input);
     }
+
+    lenv_free(env);
     clear_parser_set(parser_set);
     return 0;
 }
