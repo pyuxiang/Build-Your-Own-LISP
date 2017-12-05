@@ -92,6 +92,7 @@ lval *builtin_pow(lenv *, lval *);
 lval *builtin_max(lenv *, lval *);
 lval *builtin_min(lenv *, lval *);
 
+lval *builtin_def(lenv *, lval *);
 lval *builtin_head(lenv *, lval *);
 lval *builtin_tail(lenv *, lval *);
 lval *builtin_list(lenv *, lval *);

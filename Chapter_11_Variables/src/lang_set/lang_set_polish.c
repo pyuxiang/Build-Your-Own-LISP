@@ -168,6 +168,7 @@ lval *lval_copy(lval *value) {
     return copy;
 }
 
+// This is not required during evaluation... why???
 void lval_check_get_replace(lenv *env, lval *src) {
     if (src->type == LVAL_SYM) {
         lval_get_replace(env, src);
@@ -381,6 +382,8 @@ void lenv_add_builtin(lenv *env, char *name, lbuiltin func) {
 }
 
 void lenv_add_builtins(lenv *env) {
+    lenv_add_builtin(env, "def", builtin_def);
+
     lenv_add_builtin(env, "list", builtin_list);
     lenv_add_builtin(env, "head", builtin_head);
     lenv_add_builtin(env, "tail", builtin_tail);
@@ -398,6 +401,34 @@ void lenv_add_builtins(lenv *env) {
     lenv_add_builtin(env, "^", builtin_pow);
     lenv_add_builtin(env, "max", builtin_max);
     lenv_add_builtin(env, "min", builtin_min);
+}
+
+// Symbol definition should be done inside qexpr
+// Otherwise an attempt to evaluate sexpr will yield
+// an unbound symbol error.
+lval *builtin_def(lenv *env, lval *args) {
+    /* Defines multiple symbols to values */
+    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
+        "Function 'def' passed incorrect type");
+
+    // Check symbol list contains valid symbols
+    lval *syms = args->cell[0];
+    int i;
+    for (i = 0; i < syms->count; i++) {
+        LASSERT(args, syms->cell[i]->type == LVAL_SYM,
+            "Function 'def' cannot define non-symbol");
+    }
+
+    // Check number of symbols matches number of values
+    LASSERT(args, syms->count == args->count - 1,
+        "Function 'def' takes incorrect number of values");
+
+    // Assignment
+    for (i = 0; i < syms->count; i++) {
+        lenv_put(env, syms->cell[i], args->cell[i+1]);
+    }
+    lval_free(args);
+    return lval_sexpr(); // success returns ()
 }
 
 lval *builtin_add(lenv *env, lval *args) {
