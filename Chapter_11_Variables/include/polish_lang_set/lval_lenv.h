@@ -52,9 +52,9 @@ enum { LVAL_NUM, LVAL_ERR, LVAL_SYM,
 
 // lval constructors and deconstructors
 lval *lval_num(long);
-lval *lval_err(char *format, ...);
+lval *lval_err(char *, ...);
 lval *lval_sym(char *);
-lval *lval_func(lbuiltin func);
+lval *lval_func(lbuiltin, char *);
 lval *lval_sexpr(void);
 lval *lval_qexpr(void);
 void lval_free(lval *);

@@ -47,10 +47,13 @@ lval *lval_sym(char *symbol_str) {
     return value;
 }
 
-lval *lval_func(lbuiltin func) {
+// Adjusted functions to share name in sym slot
+lval *lval_func(lbuiltin func, char *name) {
     lval *value = malloc(sizeof(lval));
     value->type = LVAL_FUNC;
     value->func = func;
+    value->sym = malloc(strlen(name) + 1);
+    strcpy(value->sym, name);
     return value;
 }
 
@@ -180,7 +183,7 @@ void lval_get_replace(lenv *env, lval *src) {
     lval *value = lenv_get(env, src);
     lval_free(src);
     switch (value->type) {
-        case LVAL_FUNC: src = lval_func(value->func); break;
+        case LVAL_FUNC: src = lval_func(value->func, value->sym); break;
         case LVAL_NUM: src = lval_num(value->num); break;
         case LVAL_ERR: src = lval_err(value->err); break;
         case LVAL_SYM: src = lval_sym(value->sym); break; // or check again?
@@ -274,6 +277,10 @@ lval *lval_eval(lenv *env, lval *value) {
     if (value->type == LVAL_SYM) {
         lval *result = lenv_get(env, value);
         lval_free(value);
+        if ((result->type == LVAL_FUNC) && (strcmp(value->sym, "dir") == 0)) {
+            lenv_print_dir(env);
+            return lval_sexpr();
+        }
         return result;
     }
     if (value->type == LVAL_SEXPR) {
@@ -295,12 +302,7 @@ lval *lval_eval_sexpr(lenv *env, lval *value) {
     // Empty expressions return self, single expr extract value
     // Exception for dir!
     if (value->count == 0) { return value; }
-    if (value->count == 1) {
-        if ((value->type == LVAL_FUNC) && (strcmp(value->sym, "dir") == 0)) {
-            lenv_print_dir(env);
-        }
-        return lval_extract(value, 0);
-    }
+    if (value->count == 1) { return lval_extract(value, 0); }
 
     // Multiple element sexpr
     // Check if first element is symbol
@@ -380,7 +382,7 @@ void lenv_print_dir(lenv *env) {
 
 void lenv_add_builtin(lenv *env, char *name, lbuiltin func) {
     lval *key = lval_sym(name);
-    lval *value = lval_func(func);
+    lval *value = lval_func(func, name);
     lenv_put(env, key, value);
     lval_free(key);
     lval_free(value);

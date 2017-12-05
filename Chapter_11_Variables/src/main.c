@@ -13,6 +13,7 @@ int main(int argc, char **argv) {
 
     lenv *env = lenv_new();
     lenv_add_builtins(env);
+    puts("Type 'dir' for available functions.");
 
     // REPL
     while (1) {

@@ -23,8 +23,11 @@ void lenv_add_builtins(lenv *env) {
     lenv_add_builtin(env, "min", builtin_min);
 }
 
+// Function not called due to single value returns instead of calls
+// Workaround to call dir during lval evaluation itself, and
+// passing it to lenv_print_dir instead.
 lval *builtin_dir(lenv *env, lval *args) {
-    /* Print names of all bound variables */
+    // Print names of all bound variables
     LASSERT_NUM(args, "dir", 0);
     int i;
     for (i = 0; i < env->count; i++) {
@@ -32,6 +35,7 @@ lval *builtin_dir(lenv *env, lval *args) {
     }
     return lval_sexpr();
 }
+
 
 // Symbol definition should be done inside qexpr
 // Otherwise an attempt to evaluate sexpr will yield
