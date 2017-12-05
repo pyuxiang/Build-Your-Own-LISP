@@ -26,8 +26,13 @@ lval *lval_err(char *);
 lval *lval_sym(char *);
 lval *lval_sexpr(void);
 lval *lval_qexpr(void);
-lval *lval_add(lval *, lval *);
 void lval_free(lval *);
+
+// lval methods
+lval *lval_add(lval *, lval *);
+lval *lval_insert(lval *, lval *, int);
+lval *lval_pop(lval *, int);
+lval *lval_extract(lval *, int);
 
 // Display
 void lval_expr_print(lval *, char, char);
@@ -50,4 +55,7 @@ lval *builtin_tail(lval *);
 lval *builtin_list(lval *);
 lval *builtin_eval(lval *);
 lval *builtin_join(lval *);
+lval *builtin_cons(lval *);
+lval *builtin_len(lval *);
+lval *builtin_init(lval *);
 lval *lval_join(lval *, lval *);

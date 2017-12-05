@@ -1,8 +1,13 @@
 #include "lang_set_polish.h"
 
+// Approach to add new features to language:
+// 1. Syntax: Add new rule to grammar
+// 2. Representation: Add new data type variation
+// 3. Parsing: Add new functions to read feature
+// 4. Semantics: Add new functions to evaluate and manipulate feature
+
 // Q-expressions similar to Lisp macros to stop evaluation.
 // Arguments are evaluated via different set of rules
-// Honestly, I don't see the practicalities of qexpr yet...
 parser_set_t *polish_notation_set(void) {
 
     // Parsers
@@ -19,7 +24,8 @@ parser_set_t *polish_notation_set(void) {
         "                                                      \
             number : /-?[0-9]+/ ;                              \
             symbol : \"list\" | \"head\" | \"tail\" | \"join\" \
-                   | \"eval\" | '+' | '-' | '*' | '/' | '^'    \
+                   | \"eval\" | \"cons\" | \"len\" | \"init\"  \
+                   | '+' | '-' | '*' | '/' | '^'               \
                    | '%' | \"min\" | \"max\" ;                 \
             sexpr  : '(' <expr>* ')' ;                         \
             qexpr  : '{' <expr>* '}' ;                         \
@@ -102,18 +108,36 @@ void lval_free(lval *value) {
     free(value);
 }
 
-lval *lval_pop(lval *value, int index) {
-    lval *result = value->cell[index];
-    memmove(&(value->cell[index]), &(value->cell[index+1]),
-        sizeof(lval *)*(value->count-index-1)); // pop value->cell[index]
-    value->count--;
-    value->cell = realloc(value->cell, sizeof(lval *)*(value->count));
+lval *lval_pop(lval *list, int index) {
+    lval *result = list->cell[index];
+    // Protects agianst segfault
+    if (list->count != index + 1) {
+        memmove(&(list->cell[index]), &(list->cell[index+1]),
+            sizeof(lval *)*(list->count-index-1)); // pop value->cell[index]
+    }
+    list->count--;
+    list->cell = realloc(list->cell, sizeof(lval *)*(list->count));
     return result;
 }
 
-lval *lval_extract(lval *value, int index) {
-    lval *result = lval_pop(value, index);
+// General form of lval_add
+// Will this cause segfault if list->count == index?
+lval *lval_insert(lval *list, lval *value, int index) {
+    list->cell = realloc(list->cell, sizeof(lval *)*(list->count + 1));
+    // Protects against segfault when appending
+    if (list->count != index){
+        memmove(&(list->cell[index+1]), &(list->cell[index]),
+            sizeof(lval *)*(list->count-index));
+    }
+    list->count++;
+    list->cell[index] = value;
     lval_free(value);
+    return list;
+}
+
+lval *lval_extract(lval *list, int index) {
+    lval *result = lval_pop(list, index);
+    lval_free(list);
     return result;
 }
 
@@ -223,92 +247,141 @@ lval *lval_eval(lval *value) {
     return result;
 }
 
-lval *builtin(lval *list, char *sym) {
-    if (strcmp("list", sym) == 0) { return builtin_list(list); }
-    if (strcmp("head", sym) == 0) { return builtin_head(list); }
-    if (strcmp("tail", sym) == 0) { return builtin_tail(list); }
-    if (strcmp("eval", sym) == 0) { return builtin_eval(list); }
-    if (strcmp("join", sym) == 0) { return builtin_join(list); }
-    if (strstr("+-/*%^ min max", sym)) { return builtin_op(list, sym); }
-    lval_free(list);
+lval *builtin(lval *args, char *sym) {
+    if (strcmp("list", sym) == 0) { return builtin_list(args); }
+    if (strcmp("head", sym) == 0) { return builtin_head(args); }
+    if (strcmp("tail", sym) == 0) { return builtin_tail(args); }
+    if (strcmp("eval", sym) == 0) { return builtin_eval(args); }
+    if (strcmp("join", sym) == 0) { return builtin_join(args); }
+    if (strcmp("cons", sym) == 0) { return builtin_cons(args); }
+    if (strcmp("len", sym) == 0) { return builtin_len(args); }
+    if (strcmp("init", sym) == 0) { return builtin_init(args); }
+    if (strstr("+-/*%^ min max", sym)) { return builtin_op(args, sym); }
+    lval_free(args);
     return lval_err("Unknown function");
 }
 
-lval *builtin_head(lval *list) {
+
+
+
+
+
+
+
+
+
+
+lval *builtin_head(lval *args) {
     /* Gets only the first element */
     // Only the qexpr itself should be passed, with nonzero elements
-    LASSERT(list, list->count == 1,
+    LASSERT(args, args->count == 1,
         "Function 'head' passed too many arguments");
-    LASSERT(list, list->cell[0]->type == LVAL_QEXPR,
+    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
         "Function 'head' passed incorrect type");
-    LASSERT(list, list->cell[0]->count != 0,
+    LASSERT(args, args->cell[0]->count != 0,
         "Function 'head' passed empty qexpr");
 
-    lval *value = lval_extract(list, 0);
+    lval *value = lval_extract(args, 0);
     // Free all elements except head
     while (value->count > 1) { lval_free(lval_pop(value, 1)); }
     return value;
 }
 
-lval *builtin_tail(lval *list) {
+lval *builtin_tail(lval *args) {
     /* Gets all elements other than the first */
     // Only the qexpr itself should be passed, with nonzero elements
-    LASSERT(list, list->count == 1,
+    LASSERT(args, args->count == 1,
         "Function 'tail' passed too many arguments");
-    LASSERT(list, list->cell[0]->type == LVAL_QEXPR,
+    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
         "Function 'tail' passed incorrect type");
-    LASSERT(list, list->cell[0]->count != 0,
+    LASSERT(args, args->cell[0]->count != 0,
         "Function 'tail' passed empty qexpr");
 
-    lval *result = lval_extract(list, 0);
+    lval *list = lval_extract(args, 0);
     // Free only first element
-    lval_free(lval_pop(result, 0));
-    return result;
-}
-
-lval *builtin_list(lval *list) {
-    /* Converts sexpr to qexpr */
-    list->type = LVAL_QEXPR;
+    lval_free(lval_pop(list, 0));
     return list;
 }
 
-lval *builtin_eval(lval *list) {
-    /* Converts qexpr to sexpr and evaluates it */
-    LASSERT(list, list->count == 1,
-        "Function 'eval' passed too many arguments");
-    LASSERT(list, list->cell[0]->type == LVAL_QEXPR,
-        "Function 'eval' passed incorrect type");
-
-    lval *result = lval_extract(list, 0);
-    result->type = LVAL_SEXPR;
-    return lval_eval(result);
+lval *builtin_list(lval *args) {
+    /* Converts sexpr to qexpr */
+    args->type = LVAL_QEXPR;
+    return args;
 }
 
-lval *builtin_join(lval *list) {
+lval *builtin_eval(lval *args) {
+    /* Converts qexpr to sexpr and evaluates it */
+    LASSERT(args, args->count == 1,
+        "Function 'eval' passed too many arguments");
+    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
+        "Function 'eval' passed incorrect type");
+
+    lval *list = lval_extract(args, 0);
+    list->type = LVAL_SEXPR;
+    return lval_eval(list);
+}
+
+lval *builtin_join(lval *args) {
     /* Concatenates multiple qexpr */
     int i;
-    for (i = 0; i < list->count; i++) {
-        LASSERT(list, list->cell[i]->type == LVAL_QEXPR,
+    for (i = 0; i < args->count; i++) {
+        LASSERT(args, args->cell[i]->type == LVAL_QEXPR,
             "Function 'join' passed incorrect type");
     }
 
     // Individual qexpr concatenation
-    lval *result = lval_pop(list, 0);
-    while (list->count) {
-        result = lval_join(result, lval_pop(list, 0));
+    lval *list = lval_pop(args, 0);
+    while (args->count) {
+        list = lval_join(list, lval_pop(args, 0));
     }
-    lval_free(list);
-    return result;
+    lval_free(args);
+    return list;
 }
 
-lval *lval_join(lval *result, lval *next) {
-    /* Concatenates single qexpr */
+lval *lval_join(lval *list, lval *next) {
+    /* Concatenates two qexpr */
     // Note qexpr and sexpr share same list attribute, i.e. lval_add
     while (next->count) {
-        result = lval_add(result, lval_pop(next, 0));
+        list = lval_add(list, lval_pop(next, 0));
     }
     lval_free(next);
-    return result;
+    return list;
+}
+
+lval *builtin_cons(lval *args) {
+    /* Takes lval and qexpr in args, and appends them */
+    LASSERT(args, args->count == 2,
+        "Function 'cons' passed wrong number of arguments");
+    LASSERT(args, args->cell[1]->type == LVAL_QEXPR,
+        "Function 'cons' passed incorrect type");
+
+    lval *value = lval_pop(args, 0);
+    lval *list = lval_extract(args, 0);
+    return lval_insert(list, value, 0);
+}
+
+lval *builtin_len(lval *args) {
+    /* Take single qexpr in args and return length */
+    LASSERT(args, args->count == 1,
+        "Function 'len' passed too many arguments");
+    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
+        "Function 'len' passed incorrect type");
+
+    long count = args->cell[0]->count;
+    lval_free(args);
+    return lval_num(count);
+}
+
+lval *builtin_init(lval *args) {
+    /* Take single qexpr in args and remove last element */
+    LASSERT(args, args->count == 1,
+        "Function 'init' passed too many arguments");
+    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
+        "Function 'init' passed incorrect type");
+
+    lval *list = lval_extract(args, 0);
+    lval_free(lval_pop(list, list->count - 1));
+    return list;
 }
 
 lval *builtin_op(lval *list, char *op) {
