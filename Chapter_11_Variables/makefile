@@ -9,8 +9,8 @@ ODIR = obj
 LDIR = lib
 
 CC = gcc
-IFLAGS = -I $(IDIR) -I $(IDIR)/lang_set \
-	-I $(SDIR) -I $(SDIR)/lang_set -I $(LDIR)
+IFLAGS = -I $(IDIR) -I $(IDIR)/polish_lang_set \
+	-I $(SDIR) -I $(SDIR)/polish_lang_set -I $(LDIR)
 CFLAGS = -std=c99 -Wall $(IFLAGS)
 
 # -o $@ specifies object files to pass to left argument
@@ -26,8 +26,10 @@ $(ODIR)/%.o: $(LDIR)/%.c
 
 
 # Normal build
-_OBJ = main.o readline_history.o mpc.o \
-	lang_parser_set.o lang_set/lang_set_polish.o
+_OBJ = main.o readline_history.o mpc.o lang_parser_set.o \
+	polish_lang_set/lang_set.o \
+	polish_lang_set/lval_lenv.o \
+	polish_lang_set/builtin.o
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ)) # accesses object directory
 
 main: $(OBJ)
@@ -41,7 +43,7 @@ clean:
 # Calling powershell from make.exe to execute rm command
 clear:
 	powershell rm $(ODIR)/*.o
-	powershell rm $(ODIR)/lang_set/*.o
+	powershell rm $(ODIR)/polish_lang_set/*.o
 
 clear_all:
 	make clear
