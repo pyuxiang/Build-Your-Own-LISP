@@ -1,5 +1,18 @@
 #include "lval_lenv.h"
 
+// Guide has a better idea to pass enum values itself
+char *lval_type_name(int enum_value) {
+    switch (enum_value) {
+        case LVAL_NUM: return "Number";
+        case LVAL_FUNC: return "Function";
+        case LVAL_ERR: return "Error";
+        case LVAL_SYM: return "Symbol";
+        case LVAL_SEXPR: return "S-expression";
+        case LVAL_QEXPR: return "Q-expression";
+    }
+    return "Unknown";
+}
+
 // Num lval constructor
 lval *lval_num(long result) {
     lval *value = malloc(sizeof(lval));
@@ -9,11 +22,19 @@ lval *lval_num(long result) {
 }
 
 // Error lval constructor
-lval *lval_err(char *error_msg) {
+lval *lval_err(char *format, ...) {
     lval *value = malloc(sizeof(lval));
     value->type = LVAL_ERR;
-    value->err = malloc(strlen(error_msg) + 1);
-    strcpy(value->err, error_msg);
+
+    va_list va;
+    va_start(va, format);
+    value->err = malloc(512);
+
+    // copy formatted string to value->err, then resize
+    vsnprintf(value->err, 511, format, va);
+    value->err = realloc(value->err, strlen(value->err)+1);
+    va_end(va);
+
     return value;
 }
 
@@ -272,16 +293,23 @@ lval *lval_eval_sexpr(lenv *env, lval *value) {
     }
 
     // Empty expressions return self, single expr extract value
+    // Exception for dir!
     if (value->count == 0) { return value; }
-    if (value->count == 1) { return lval_extract(value, 0); }
+    if (value->count == 1) {
+        if ((value->type == LVAL_FUNC) && (strcmp(value->sym, "dir") == 0)) {
+            lenv_print_dir(env);
+        }
+        return lval_extract(value, 0);
+    }
 
     // Multiple element sexpr
     // Check if first element is symbol
     lval *first = lval_pop(value, 0);
     if (first->type != LVAL_FUNC) {
+        lval *error = lval_err("'%s' is not a function", lval_type_name(first->type));
         lval_free(first);
         lval_free(value);
-        return lval_err("First element is not a function");
+        return error;
     }
 
     // Call operator on rest of elements
@@ -319,7 +347,7 @@ lval *lenv_get(lenv *env, lval *key) {
             return lval_copy(env->vals[i]);
         }
     }
-    return lval_err("Unbound symbol");
+    return lval_err("Unbound symbol '%s'", key->sym);
 }
 
 void lenv_put(lenv *env, lval *key, lval *value) {
@@ -342,6 +370,13 @@ void lenv_put(lenv *env, lval *key, lval *value) {
     strcpy(env->syms[env->count-1], key->sym);
 }
 
+void lenv_print_dir(lenv *env) {
+    /* Print names of all bound variables */
+    int i;
+    for (i = 0; i < env->count; i++) {
+        printf(" %2d: %s\n", i, env->syms[i]);
+    }
+}
 
 void lenv_add_builtin(lenv *env, char *name, lbuiltin func) {
     lval *key = lval_sym(name);

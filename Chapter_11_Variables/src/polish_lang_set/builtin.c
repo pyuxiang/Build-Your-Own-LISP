@@ -1,6 +1,7 @@
 #include "builtin.h"
 
 void lenv_add_builtins(lenv *env) {
+    lenv_add_builtin(env, "dir", builtin_dir);
     lenv_add_builtin(env, "def", builtin_def);
 
     lenv_add_builtin(env, "list", builtin_list);
@@ -22,25 +23,36 @@ void lenv_add_builtins(lenv *env) {
     lenv_add_builtin(env, "min", builtin_min);
 }
 
+lval *builtin_dir(lenv *env, lval *args) {
+    /* Print names of all bound variables */
+    LASSERT_NUM(args, "dir", 0);
+    int i;
+    for (i = 0; i < env->count; i++) {
+        printf(" %3d: %s\n", i, env->syms[i]);
+    }
+    return lval_sexpr();
+}
+
 // Symbol definition should be done inside qexpr
 // Otherwise an attempt to evaluate sexpr will yield
 // an unbound symbol error.
 lval *builtin_def(lenv *env, lval *args) {
     /* Defines multiple symbols to values */
-    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
-        "Function 'def' passed incorrect type");
+    LASSERT_TYPE(args, "def", 0, LVAL_QEXPR);
 
     // Check symbol list contains valid symbols
     lval *syms = args->cell[0];
     int i;
     for (i = 0; i < syms->count; i++) {
         LASSERT(args, syms->cell[i]->type == LVAL_SYM,
-            "Function 'def' cannot define non-symbol");
+            "Function 'def' cannot define non-symbol. Expected %s instead of %s.",
+            lval_type_name(LVAL_SYM), lval_type_name(args->cell[i]->type));
     }
 
     // Check number of symbols matches number of values
     LASSERT(args, syms->count == args->count - 1,
-        "Function 'def' takes incorrect number of values");
+        "Function 'def' takes incorrect number of values. Expected %d instead of %d.",
+        syms->count, args->count - 1);
 
     // Assignment
     for (i = 0; i < syms->count; i++) {
@@ -85,13 +97,10 @@ lval *builtin_min(lenv *env, lval *args) {
 lval *builtin_head(lenv *env, lval *args) {
     /* Gets only the first element */
     // Only the qexpr itself should be passed, with nonzero elements
-    LASSERT(args, args->count == 1,
-        "Function 'head' passed too many arguments");
+    LASSERT_NUM(args, "head", 1);
     lval_check_get_replace(env, args->cell[0]);
-    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
-        "Function 'head' passed incorrect type");
-    LASSERT(args, args->cell[0]->count != 0,
-        "Function 'head' passed empty qexpr");
+    LASSERT_TYPE(args, "head", 0, LVAL_QEXPR);
+    LASSERT_NOT_EMPTY(args, "head", 0);
 
     lval *value = lval_extract(args, 0);
     // Free all elements except head
@@ -102,13 +111,10 @@ lval *builtin_head(lenv *env, lval *args) {
 lval *builtin_tail(lenv *env, lval *args) {
     /* Gets all elements other than the first */
     // Only the qexpr itself should be passed, with nonzero elements
-    LASSERT(args, args->count == 1,
-        "Function 'tail' passed too many arguments");
+    LASSERT_NUM(args, "head", 1);
     lval_check_get_replace(env, args->cell[0]);
-    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
-        "Function 'tail' passed incorrect type");
-    LASSERT(args, args->cell[0]->count != 0,
-        "Function 'tail' passed empty qexpr");
+    LASSERT_TYPE(args, "tail", 0, LVAL_QEXPR);
+    LASSERT_NOT_EMPTY(args, "tail", 0);
 
     lval *list = lval_extract(args, 0);
     // Free only first element
@@ -125,11 +131,9 @@ lval *builtin_list(lenv *env, lval *args) {
 
 lval *builtin_eval(lenv *env, lval *args) {
     /* Converts qexpr to sexpr and evaluates it */
-    LASSERT(args, args->count == 1,
-        "Function 'eval' passed too many arguments");
+    LASSERT_NUM(args, "eval", 1);
     lval_check_get_replace(env, args->cell[0]);
-    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
-        "Function 'eval' passed incorrect type");
+    LASSERT_TYPE(args, "eval", 0, LVAL_QEXPR);
 
     lval *list = lval_extract(args, 0);
     list->type = LVAL_SEXPR;
@@ -141,8 +145,7 @@ lval *builtin_join(lenv *env, lval *args) {
     int i;
     for (i = 0; i < args->count; i++) {
         lval_check_get_replace(env, args->cell[i]);
-        LASSERT(args, args->cell[i]->type == LVAL_QEXPR,
-            "Function 'join' passed incorrect type");
+        LASSERT_TYPE(args, "join", i, LVAL_QEXPR);
     }
 
     // Individual qexpr concatenation
@@ -156,14 +159,10 @@ lval *builtin_join(lenv *env, lval *args) {
 
 lval *builtin_cons(lenv *env, lval *args) {
     /* Takes lval and qexpr in args, and appends them */
-    LASSERT(args, args->count == 2,
-        "Function 'cons' passed wrong number of arguments");
-
+    LASSERT_NUM(args, "cons", 2);
     lval_check_get_replace(env, args->cell[0]);
     lval_check_get_replace(env, args->cell[1]);
-
-    LASSERT(args, args->cell[1]->type == LVAL_QEXPR,
-        "Function 'cons' passed incorrect type");
+    LASSERT_TYPE(args, "cons", 1, LVAL_QEXPR);
 
     lval *value = lval_pop(args, 0);
     lval *list = lval_extract(args, 0);
@@ -172,13 +171,9 @@ lval *builtin_cons(lenv *env, lval *args) {
 
 lval *builtin_len(lenv *env, lval *args) {
     /* Take single qexpr in args and return length */
-    LASSERT(args, args->count == 1,
-        "Function 'len' passed too many arguments");
-
+    LASSERT_NUM(args, "len", 1);
     lval_check_get_replace(env, args->cell[0]);
-
-    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
-        "Function 'len' passed incorrect type");
+    LASSERT_TYPE(args, "len", 0, LVAL_QEXPR);
 
     long count = args->cell[0]->count;
     lval_free(args);
@@ -189,13 +184,9 @@ lval *builtin_init(lenv *env, lval *args) {
     /* Take single qexpr in args and remove last element */
 
     // Check if args is sym
-    LASSERT(args, args->count == 1,
-        "Function 'init' passed too many arguments");
-
+    LASSERT_NUM(args, "init", 1);
     lval_check_get_replace(env, args->cell[0]);
-
-    LASSERT(args, args->cell[0]->type == LVAL_QEXPR,
-        "Function 'init' passed incorrect type");
+    LASSERT_TYPE(args, "init", 0, LVAL_QEXPR);
 
     lval *list = lval_extract(args, 0);
     lval_free(lval_pop(list, list->count - 1));
@@ -208,10 +199,7 @@ lval *builtin_op(lenv *env, lval *args, char *op) {
     int i;
     for (i = 0; i < args->count; i++) {
         lval_check_get_replace(env, args->cell[i]);
-        if (args->cell[i]->type != LVAL_NUM) {
-            lval_free(args);
-            return lval_err("Cannot operate on non-number");
-        }
+        LASSERT_TYPE(args, op, i, LVAL_NUM);
     }
 
     lval *result = lval_pop(args, 0);
@@ -281,8 +269,8 @@ lval *builtin_op(lenv *env, lval *args, char *op) {
         if (strcmp(op, "^") == 0) {
             if (next->num < 0) {
                 lval_free(result);
+                result = lval_err("Negative exponent (%d) not supported", next->num);
                 lval_free(next);
-                result = lval_err("Negative exponents not supported");
                 break;
             }
             long exp_result = 1; // Note 0^0 is defined as 1

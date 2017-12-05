@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <string.h>
+#include <stdarg.h>
 #include "mpc.h"
 
 struct lval;
@@ -42,6 +43,7 @@ lval *lenv_get(lenv *, lval *);
 void lenv_put(lenv *, lval *, lval *);
 void lval_check_get_replace(lenv *, lval *);
 void lval_get_replace(lenv *, lval *);
+void lenv_print_dir(lenv *);
 void lenv_add_builtin(lenv *, char *, lbuiltin);
 
 // lval types
@@ -50,7 +52,7 @@ enum { LVAL_NUM, LVAL_ERR, LVAL_SYM,
 
 // lval constructors and deconstructors
 lval *lval_num(long);
-lval *lval_err(char *);
+lval *lval_err(char *format, ...);
 lval *lval_sym(char *);
 lval *lval_func(lbuiltin func);
 lval *lval_sexpr(void);
@@ -58,6 +60,7 @@ lval *lval_qexpr(void);
 void lval_free(lval *);
 
 // lval methods
+char *lval_type_name(int);
 lval *lval_add(lval *, lval *);
 lval *lval_insert(lval *, lval *, int);
 lval *lval_pop(lval *, int);
