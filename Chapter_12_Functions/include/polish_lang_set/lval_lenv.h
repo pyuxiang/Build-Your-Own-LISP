@@ -17,11 +17,19 @@ typedef lval *(*lbuiltin)(lenv *, lval *);
 
 struct lval {
     int type; // specifies type of lval and field to access
+
+    // Basic types
     long num; // successful num result
     char *err; // runtime error code
     char *sym; // symbol string data
-    lbuiltin func;
 
+    // Function types
+    lbuiltin func;
+    lenv *env;
+    lval *formals;
+    lval *body;
+
+    // Expression types
     int count; // lval* count
     struct lval** cell;
 };
@@ -54,7 +62,7 @@ enum { LVAL_NUM, LVAL_ERR, LVAL_SYM,
 lval *lval_num(long);
 lval *lval_err(char *, ...);
 lval *lval_sym(char *);
-lval *lval_func(lbuiltin, char *);
+lval *lval_func(lbuiltin);
 lval *lval_sexpr(void);
 lval *lval_qexpr(void);
 void lval_free(lval *);
