@@ -1,7 +1,9 @@
 #include "builtin.h"
 
 void lenv_add_builtins(lenv *env) {
-    lenv_add_builtin(env, "def", builtin_def);
+    lenv_add_builtin(env, "def", builtin_def); // Global assignment
+    lenv_add_builtin(env, "=", builtin_put); // Local assignment
+    lenv_add_builtin(env, "\\", builtin_lambda);
 
     lenv_add_builtin(env, "list", builtin_list);
     lenv_add_builtin(env, "head", builtin_head);
@@ -22,33 +24,68 @@ void lenv_add_builtins(lenv *env) {
     lenv_add_builtin(env, "min", builtin_min);
 }
 
+lval *builtin_def(lenv *env, lval *args) {
+    return builtin_var(env, args, "def");
+}
+
+lval *builtin_put(lenv *env, lval *args) {
+    return builtin_var(env, args, "=");
+}
+
 // Symbol definition should be done inside qexpr
 // Otherwise an attempt to evaluate sexpr will yield
 // an unbound symbol error.
-lval *builtin_def(lenv *env, lval *args) {
+lval *builtin_var(lenv *env, lval *args, char *func) {
     /* Defines multiple symbols to values */
-    LASSERT_TYPE(args, "def", 0, LVAL_QEXPR);
+    LASSERT_TYPE(args, func, 0, LVAL_QEXPR);
 
     // Check symbol list contains valid symbols
     lval *syms = args->cell[0];
     int i;
     for (i = 0; i < syms->count; i++) {
         LASSERT(args, syms->cell[i]->type == LVAL_SYM,
-            "Function 'def' cannot define non-symbol. Expected %s instead of %s.",
-            lval_type_name(LVAL_SYM), lval_type_name(args->cell[i]->type));
+            "Function '%s' cannot define non-symbol. Expected %s instead of %s.",
+            func, lval_type_name(LVAL_SYM), lval_type_name(syms->cell[i]->type));
     }
 
     // Check number of symbols matches number of values
     LASSERT(args, syms->count == args->count - 1,
-        "Function 'def' takes incorrect number of values. Expected %d instead of %d.",
-        syms->count, args->count - 1);
+        "Function '%s' takes incorrect number of values. Expected %d instead of %d.",
+        func, syms->count, args->count - 1);
 
-    // Assignment
+    // Assignment (global def, local put)
     for (i = 0; i < syms->count; i++) {
-        lenv_put(env, syms->cell[i], args->cell[i+1]);
+        if (strcmp(func, "def") == 0) {
+            lenv_put(env, syms->cell[i], args->cell[i+1]);
+        } else if (strcmp(func, "=") == 0) {
+            lenv_put(env, syms->cell[i], args->cell[i+1]);
+        } else {
+            lval_free(args);
+            return lval_err("Internal reference error in builtin_var. Got %s.", func);
+        }
     }
     lval_free(args);
     return lval_sexpr(); // success returns ()
+}
+
+lval *builtin_lambda(lenv *env, lval *args) {
+    /* First arg: formals, second arg: defn */
+    LASSERT_NUM(args, "\\", 2);
+    LASSERT_TYPE(args, "\\", 0, LVAL_QEXPR);
+    LASSERT_TYPE(args, "\\", 1, LVAL_QEXPR);
+
+    // Check formals only contain symbols
+    int i;
+    for (i = 0; i < args->cell[0]->count; i++) {
+        LASSERT(args, args->cell[0]->cell[i]->type == LVAL_SYM,
+            "Cannot define non-symbol. Expected %s instead of %s.",
+            lval_type_name(LVAL_SYM), lval_type_name(args->cell[0]->cell[i]->type));
+    }
+
+    lval *formals = lval_pop(args, 0);
+    lval *body = lval_pop(args, 0);
+    lval_free(args);
+    return lval_lambda(formals, body);
 }
 
 lval *builtin_add(lenv *env, lval *args) {

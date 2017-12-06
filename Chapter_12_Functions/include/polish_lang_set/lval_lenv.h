@@ -1,3 +1,6 @@
+#ifndef lval_lenv_h
+#define lval_lenv_h
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -24,7 +27,7 @@ struct lval {
     char *sym; // symbol string data
 
     // Function types
-    lbuiltin func;
+    lbuiltin builtin;
     lenv *env;
     lval *formals;
     lval *body;
@@ -37,6 +40,7 @@ struct lval {
 // Environment to store variables
 struct lenv {
     // sym-val pair at each index
+    lenv *parent;
     int count;
     char **syms;
     lval **vals;
@@ -49,6 +53,8 @@ void lenv_free(lenv *);
 // Accessors
 lval *lenv_get(lenv *, lval *);
 void lenv_put(lenv *, lval *, lval *);
+lenv *lenv_copy(lenv *);
+void lenv_def(lenv *, lval *, lval *);
 void lval_check_get_replace(lenv *, lval *);
 void lval_get_replace(lenv *, lval *);
 void lenv_print_dir(lenv *);
@@ -63,6 +69,7 @@ lval *lval_num(long);
 lval *lval_err(char *, ...);
 lval *lval_sym(char *);
 lval *lval_func(lbuiltin);
+lval *lval_lambda(lval *, lval *);
 lval *lval_sexpr(void);
 lval *lval_qexpr(void);
 void lval_free(lval *);
@@ -87,3 +94,6 @@ lval *lval_read(mpc_ast_t *);
 // Evaluate (sexpr)
 lval *lval_eval(lenv *, lval *);
 lval *lval_eval_sexpr(lenv *, lval *);
+lval *lval_call(lenv *, lval *, lval *);
+
+#endif

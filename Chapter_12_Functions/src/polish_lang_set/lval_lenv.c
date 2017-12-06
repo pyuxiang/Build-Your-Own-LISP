@@ -1,4 +1,5 @@
 #include "lval_lenv.h"
+#include "builtin.h" // For builtin_eval in lval_call()
 
 // Guide has a better idea to pass enum values itself
 char *lval_type_name(int enum_value) {
@@ -51,7 +52,18 @@ lval *lval_sym(char *symbol_str) {
 lval *lval_func(lbuiltin func) {
     lval *value = malloc(sizeof(lval));
     value->type = LVAL_FUNC;
-    value->func = func;
+    value->builtin = func;
+    return value;
+}
+
+lval *lval_lambda(lval *formals, lval* body) {
+    lval *value = malloc(sizeof(lval));
+    value->type = LVAL_FUNC;
+    value->builtin = NULL; // User-defined functions are not builtin functions
+
+    value->env = lenv_new(); // Local scope for arguments
+    value->formals = formals; // Lambda arguments
+    value->body = body; // Qexpr function definition
     return value;
 }
 
@@ -85,6 +97,12 @@ lval *lval_add(lval *list, lval *node) {
 void lval_free(lval *value) {
     switch (value->type) {
         case LVAL_FUNC:
+            if (value->builtin == NULL) {
+                lenv_free(value->env);
+                lval_free(value->formals);
+                lval_free(value->body);
+            }
+            break;
         case LVAL_NUM: break;
         case LVAL_ERR: free(value->err); break;
         case LVAL_SYM: free(value->sym); break;
@@ -133,7 +151,16 @@ lval *lval_copy(lval *value) {
     copy->type = value->type;
 
     switch (value->type) {
-        case LVAL_FUNC: copy->func = value->func; break;
+        case LVAL_FUNC:
+            if (value->builtin == NULL) {
+                copy->builtin = NULL;
+                copy->env = lenv_copy(value->env);
+                copy->formals = lval_copy(value->formals);
+                copy->body = lval_copy(value->body);
+            } else {
+                copy->builtin = value->builtin;
+            }
+            break;
         case LVAL_NUM: copy->num = value->num; break;
         case LVAL_ERR:
             copy->err = malloc(strlen(value->err) + 1);
@@ -176,24 +203,10 @@ void lval_check_get_replace(lenv *env, lval *src) {
 }
 
 void lval_get_replace(lenv *env, lval *src) {
-
     /* Attempt to get env var and replace dest */
     lval *value = lenv_get(env, src);
     lval_free(src);
-    switch (value->type) {
-        case LVAL_FUNC: src = lval_func(value->func); break;
-        case LVAL_NUM: src = lval_num(value->num); break;
-        case LVAL_ERR: src = lval_err(value->err); break;
-        case LVAL_SYM: src = lval_sym(value->sym); break; // or check again?
-        case LVAL_SEXPR:
-            src = lval_sexpr();
-            src = lval_join(src, value);
-            break;
-        case LVAL_QEXPR:
-            src = lval_qexpr();
-            src = lval_join(src, value);
-            break;
-    }
+    src = lval_copy(value);
     lval_free(value);
 }
 
@@ -218,7 +231,14 @@ void lval_print(lval *value) {
         case LVAL_NUM: printf("%li", value->num); break;
         case LVAL_ERR: printf("Error: %s", value->err); break;
         case LVAL_SYM: printf("%s", value->sym); break;
-        case LVAL_FUNC: printf("<function>"); break;
+        case LVAL_FUNC:
+            if (value->builtin == NULL) {
+                printf("(\\ "); lval_print(value->formals);
+                putchar(' '); lval_print(value->body); putchar(')');
+            } else {
+                printf("<builtin>");
+            }
+            break;
         case LVAL_SEXPR: lval_expr_print(value, '(', ')'); break;
         case LVAL_QEXPR: lval_expr_print(value, '{', '}'); break;
     }
@@ -304,25 +324,65 @@ lval *lval_eval_sexpr(lenv *env, lval *value) {
     if (value->count == 1) { return lval_extract(value, 0); }
 
     // Multiple element sexpr
-    // Check if first element is symbol
-    lval *first = lval_pop(value, 0);
-    if (first->type != LVAL_FUNC) {
-        lval *error = lval_err("'%s' is not a function", lval_type_name(first->type));
-        lval_free(first);
+    // Check if first element is func
+    lval *func = lval_pop(value, 0);
+    if (func->type != LVAL_FUNC) {
+        lval *error = lval_err("'%s' is not a function", lval_type_name(func->type));
+        lval_free(func);
         lval_free(value);
         return error;
     }
 
     // Call operator on rest of elements
-    lval *result = first->func(env, value);
-    lval_free(first);
+    lval *result = lval_call(env, func, value);
+    lval_free(func);
     return result;
 }
+
+// Function call
+lval *lval_call(lenv *env, lval *func, lval *args) {
+    // Built-in function call
+    if (func->builtin) { return func->builtin(env, args); }
+
+    int supplied_arg_count = args->count;
+    int required_arg_count = func->formals->count;
+    while (args->count) {
+        // Ran out of formal arguments to bind
+        if (func->formals->count == 0) {
+            lval_free(args);
+            return lval_err(
+                "Function passed too many arguments. Expected at most %s instead of %s.",
+                required_arg_count, supplied_arg_count);
+        }
+
+        // Bind arguments
+        lval *sym = lval_pop(func->formals, 0);
+        lval *val = lval_pop(args, 0);
+        lenv_put(func->env, sym, val);
+        lval_free(sym);
+        lval_free(val);
+    }
+    lval_free(args);
+
+    if (func->formals->count == 0) {
+        // Evaluate function once all formals bound
+        func->env->parent = env; // why set parent to current env?
+        return builtin_eval(func->env, lval_add(lval_sexpr(), lval_copy(func->body)));
+    } else {
+        // Return partially evaluated function
+        return lval_copy(func);
+    }
+
+}
+
+
+
 
 
 // lenv constructors and methods
 lenv *lenv_new(void) {
     lenv *env = malloc(sizeof(lenv));
+    env->parent = NULL; // No parent environment
     env->count = 0;
     env->syms = NULL;
     env->vals = NULL;
@@ -348,6 +408,10 @@ lval *lenv_get(lenv *env, lval *key) {
             return lval_copy(env->vals[i]);
         }
     }
+    // Check in parent environment if it exists
+    if (env->parent) {
+        return lenv_get(env->parent, key);
+    }
     return lval_err("Unbound symbol '%s'", key->sym);
 }
 
@@ -369,6 +433,28 @@ void lenv_put(lenv *env, lval *key, lval *value) {
     env->syms = realloc(env->syms, sizeof(char *) * env->count);
     env->syms[env->count-1] = malloc(strlen(key->sym) + 1);
     strcpy(env->syms[env->count-1], key->sym);
+}
+
+lenv *lenv_copy(lenv *env) {
+    lenv *copy = malloc(sizeof(lenv));
+    copy->parent = env->parent;
+    copy->count = env->count;
+    copy->syms = malloc(sizeof(char *) * env->count);
+    copy->vals = malloc(sizeof(lval *) * env->count);
+    int i;
+    for (i = 0; i < env->count; i++) {
+        copy->syms[i] = malloc(strlen(env->syms[i]) + 1); // copy symbols
+        strcpy(copy->syms[i], env->syms[i]);
+        copy->vals[i] = lval_copy(env->vals[i]);
+    }
+    return copy;
+}
+
+// Global definition
+void lenv_def(lenv *env, lval *key, lval *value) {
+    // Access root environment to define var there
+    for (; env->parent; env = env->parent);
+    lenv_put(env, key, value);
 }
 
 void lenv_print_dir(lenv *env) {
