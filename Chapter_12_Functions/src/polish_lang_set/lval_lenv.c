@@ -1,3 +1,13 @@
+/* Interesting functions (http://www.buildyourownlisp.com/chapter12_functions):
+ *     Simpler func defn:
+ *         \ {args body} {def (head args) (\ (tail args) body)}
+ *         def {fun} (\ {args body} {def (head args) (\ (tail args) body)})
+ *         fun {add-together x y} {+ x y}
+ *     Currying:
+ *         fun {curry f xs} {eval (join (list f) xs)}
+ *         fun {uncurry f & xs} {f xs}
+ */
+
 #include "lval_lenv.h"
 #include "builtin.h" // For builtin_eval in lval_call()
 
@@ -357,6 +367,22 @@ lval *lval_call(lenv *env, lval *func, lval *args) {
 
         // Bind arguments
         lval *sym = lval_pop(func->formals, 0);
+        // Variable arguments using &
+        if (strcmp(sym->sym, "&") == 0) {
+            if (func->formals->count != 1) {
+                lval_free(args);
+                return lval_err("Function format invalid. "
+                    "Symbol '&' not following by single symbol.");
+            }
+            lval *next_sym = lval_pop(func->formals, 0);
+
+            // Assign to variable arg sym the qexpr list of args
+            lenv_put(func->env, next_sym, builtin_list(env, args));
+            lval_free(sym);
+            lval_free(next_sym);
+            break;
+        }
+
         lval *val = lval_pop(args, 0);
         lenv_put(func->env, sym, val);
         lval_free(sym);
@@ -364,9 +390,30 @@ lval *lval_call(lenv *env, lval *func, lval *args) {
     }
     lval_free(args);
 
+    // If variable args not supplied, i.e.
+    // & still exists in formals (check if accessing formal args valid first!)
+    if ((func->formals->count > 0) && strcmp(func->formals->cell[0]->sym, "&") == 0) {
+        // Continue to check formatting of variable args
+        if (func->formals->count != 2) {
+            return lval_err("Function format invalid. "
+                "Symbol '&' not followed by single symbol.");
+        }
+
+        // Remove '&' symbol and bind empty list to varg sym
+        lval_free(lval_pop(func->formals, 0));
+        lval *sym = lval_pop(func->formals, 0);
+        lval *val = lval_qexpr();
+        lenv_put(func->env, sym, val);
+        lval_free(sym);
+        lval_free(val);
+    }
+
     if (func->formals->count == 0) {
         // Evaluate function once all formals bound
-        func->env->parent = env; // why set parent to current env?
+        // Why set parent to current env?
+        // Answer: Need to bind parent of func->env, so that variables bound in current_env can be accessed (e.g. globals)
+        //         the func is otherwise limited to only the formal arguments bound in its own env
+        func->env->parent = env;
         return builtin_eval(func->env, lval_add(lval_sexpr(), lval_copy(func->body)));
     } else {
         // Return partially evaluated function
