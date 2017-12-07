@@ -32,11 +32,18 @@ _OBJ = main.o readline_history.o mpc.o lang_parser_set.o \
 	polish_lang_set/builtin.o
 OBJ = $(patsubst %, $(ODIR)/%, $(_OBJ)) # accesses object directory
 
+# Apparently, modifying a header file will not be reflected as a change
+# to rebuild the object file. Perhaps something to do with arity of functions?
+# Setting this as the default rule :)
+refresh:
+	make clear
+	make main
+
 main: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 clean:
-	make main
+	make refresh
 	make clear
 
 # del for cmd.exe, rm for bash shell

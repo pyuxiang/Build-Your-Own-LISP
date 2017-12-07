@@ -28,6 +28,19 @@ void lenv_add_builtins(lenv *);
     LASSERT(args, args->cell[index]->count != 0, \
         "Function '%s' passed empty {} at argument %d.", func, index);
 
+// Checks if numbers are booleans 1 and 0
+// long values can also be printed with %d
+#define LASSERT_BOOL(args, func, index) \
+    LASSERT_TYPE(args, func, index, LVAL_NUM); \
+    long num = args->cell[index]->num; \
+    LASSERT(args, (num == 0)||(num == 1), \
+        "Function '%s' passed non-boolean at argument %d. Expected 0 or 1 instead of %d.", \
+        func, index, args->cell[index]->num);
+
+lval *builtin_or(lenv *, lval *);
+lval *builtin_and(lenv *, lval *);
+lval *builtin_bool(lenv *, lval *, char *);
+
 lval *builtin_add(lenv *, lval *);
 lval *builtin_sub(lenv *, lval *);
 lval *builtin_mul(lenv *, lval *);

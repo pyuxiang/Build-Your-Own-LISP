@@ -5,6 +5,10 @@ void lenv_add_builtins(lenv *env) {
     lenv_add_builtin(env, "=", builtin_put); // Local assignment
     lenv_add_builtin(env, "\\", builtin_lambda);
 
+    // Comparisons
+    lenv_add_builtin(env, "or", builtin_or);
+    lenv_add_builtin(env, "and", builtin_and);
+
     lenv_add_builtin(env, "list", builtin_list);
     lenv_add_builtin(env, "head", builtin_head);
     lenv_add_builtin(env, "tail", builtin_tail);
@@ -87,6 +91,118 @@ lval *builtin_lambda(lenv *env, lval *args) {
     lval_free(args);
     return lval_lambda(formals, body);
 }
+
+
+/* CONDITIONALS */
+
+lval *builtin_or(lenv *env, lval *args) {
+    return builtin_bool(env, args, "or");
+}
+
+lval *builtin_and(lenv *env, lval *args) {
+    return builtin_bool(env, args, "and");
+}
+
+lval *builtin_bool(lenv *env, lval *args, char *func) {
+    // Check all arguments are booleans (0 or 1)
+    int i;
+    for (i = 0; i < args->count; i++) {
+        LASSERT_BOOL(args, func, i);
+    }
+
+    lval *result = lval_pop(args, 0);
+    while (args->count) {
+        lval *next = lval_pop(args, 0);
+        if (strcmp(func, "or") == 0) {
+            result->num = result->num || next->num;
+        } else if (strcmp(func, "and") == 0) {
+            result->num = result->num && next->num;
+        } else {
+            lval_free(args);
+            lval_free(result);
+            lval_free(next);
+            return lval_err("Internal reference error in builtin_bool. Got %s.", func);
+        }
+        lval_free(next);
+    }
+    lval_free(args);
+    return result;
+}
+/*
+lval *builtin_bool_eq(lenv *env, lval *args) {
+
+    int i;
+    for (i = 0; i < args->count; i++) {
+        LASSERT_NUM(args, func,)
+    }
+}
+
+
+lval *builtin_greater(lenv *env, lval *args) {
+    return builtin_compare(env, args, ">");
+}
+
+lval *builtin_greater_eq(lenv *env, lval *args) {
+    return builtin_compare(env, args, ">=");
+}
+
+lval *builtin_lesser(lenv *env, lval *args) {
+    return builtin_compare(env, args, "<");
+}
+
+lval *builtin_lesser_eq(lenv *env, lval *args) {
+    return builtin_compare(env, args, "<");
+}
+
+lval *builtin_compare(lenv *env, lval *args, char *func) {
+    LASSERT_NUM(args, "")
+}
+
+lval *builtin_eq(lenv *env, lval *args) {
+
+    LASSERT_NUM(args, "==", 2);
+    LASSERT_TYPE(args, "==", 0, LVAL_NUM);
+    LASSERT_TYPE(args, "==", 1, LVAL_NUM);
+
+    lval *left = lval_pop(args, 0);
+    lval *right = lval_extract(args, 0);
+    int result = left == right ? 1 : 0;
+    lval_free(left);
+    lval_free(right);
+    return lval_num(result);
+}
+
+lval *builtin_greater_than(lenv *env, lval *args) {
+
+    LASSERT_NUM(args, ">", 2);
+    lval_check_get_replace(env, args->cell[0]);
+    LASSERT_TYPE(args, ">", 0, LVAL_NUM);
+    LASSERT_TYPE(args, ">", 1, LVAL_NUM);
+
+    lval *left = lval_pop(args, 0);
+    lval *right = lval_extract(args, 0);
+    int result = left > right ? 1 : 0;
+    lval_free(left);
+    lval_free(right);
+    return lval_num(result);
+}
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* MATHEMATICAL OPERATIONS */
 
 lval *builtin_add(lenv *env, lval *args) {
     return builtin_op(env, args, "+");
