@@ -9,11 +9,14 @@ void lenv_add_builtins(lenv *env) {
     lenv_add_builtin(env, "or", builtin_or);
     lenv_add_builtin(env, "and", builtin_and);
     lenv_add_builtin(env, "==", builtin_eq);
+    lenv_add_builtin(env, "!=", builtin_neq);
     lenv_add_builtin(env, ">", builtin_greater);
     lenv_add_builtin(env, ">=", builtin_greater_eq);
     lenv_add_builtin(env, "<", builtin_lesser);
     lenv_add_builtin(env, "<=", builtin_lesser_eq);
     lenv_add_builtin(env, "bool", builtin_bool);
+    lenv_add_builtin(env, "!", builtin_negate);
+    lenv_add_builtin(env, "if", builtin_if);
 
     lenv_add_builtin(env, "list", builtin_list);
     lenv_add_builtin(env, "head", builtin_head);
@@ -146,7 +149,7 @@ lval *builtin_eq(lenv *env, lval *args) {
     lval *control = lval_pop(args, 0);
     while (args->count) {
         lval *next = lval_pop(args, 0);
-        if (!lval_bool(lval_eq(control, next))) {
+        if (!lval_eq(control, next)) {
             lval_free(next);
             eq_flag = 0;
             break;
@@ -154,7 +157,37 @@ lval *builtin_eq(lenv *env, lval *args) {
         lval_free(next);
     }
     lval_free(control);
+    lval_free(args);
     return lval_num(eq_flag);
+}
+
+// Redefining neq so that it fits for multiple length args
+// Need to do pairwise comparison for all arguments
+lval *builtin_neq(lenv *env, lval *args) {
+
+    if (args->count == 0) {
+        lval_free(args);
+        return lval_err("Function '!=' must have at least one argument.");
+    }
+
+    int neq_flag = 1;
+    while ((args->count) && (neq_flag == 1)) {
+        lval *control = lval_pop(args, 0);
+        lval *remaining = lval_copy(args);
+        while (remaining->count) {
+            lval *next = lval_pop(remaining, 0);
+            if (lval_eq(control, next)) {
+                lval_free(next);
+                neq_flag = 0;
+                break;
+            }
+            lval_free(next);
+        }
+        lval_free(control);
+        lval_free(remaining);
+    }
+    lval_free(args);
+    return lval_num(neq_flag);
 }
 
 lval *builtin_compare_num(lenv *env, lval *args, char *func) {
@@ -207,6 +240,36 @@ lval *builtin_bool(lenv *env, lval *args) {
     return lval_num(result);
 }
 
+lval *builtin_negate(lenv *env, lval *args) {
+
+    LASSERT_NUM(args, "!", 1);
+    LASSERT_BOOL(args, "!", 0);
+
+    lval *value = lval_extract(args, 0);
+    int negation = lval_bool(value) ? 0 : 1;
+    lval_free(value);
+    return lval_num(negation);
+}
+
+// Simulate ternary operator
+lval *builtin_if(lenv *env, lval *args) {
+
+    LASSERT_NUM(args, "if", 3);
+    LASSERT_TYPE(args, "if", 0, LVAL_NUM);
+    LASSERT_TYPE(args, "if", 1, LVAL_QEXPR);
+    LASSERT_TYPE(args, "if", 2, LVAL_QEXPR);
+
+    lval *result;
+    if (args->cell[0]->num) {
+        args->cell[1]->type = LVAL_SEXPR; // Allow evaluation
+        result = lval_eval(env, lval_pop(args, 1));
+    } else {
+        args->cell[2]->type = LVAL_SEXPR;
+        result = lval_eval(env, lval_pop(args, 2));
+    }
+    lval_free(args);
+    return result;
+}
 
 
 /* MATHEMATICAL OPERATIONS */

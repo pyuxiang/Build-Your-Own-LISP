@@ -196,48 +196,36 @@ lval *lval_copy(lval *value) {
 // Check strict equality of lvals, by comparing addresses
 // Strings are treated as primitives, and same primitive values are equal
 // Returns bool in the form of 0 and 1
-lval *lval_eq(lval *lval1, lval *lval2) {
 
-    int eq_flag = 1;
-    if (lval1->type != lval2->type) {
-        eq_flag = 0;
-    }
+// Modifying defintion to include suggested idea:
+// All fields should be equal!
+// And simply return an int will do, no point keeping it as lval since
+// it is not a builtin function anyway.
+// This method really leverages on recursion. Sounds like an aspect I need to improve in.
+int lval_eq(lval *lval1, lval *lval2) {
 
-    if (eq_flag) {
-        switch (lval1->type) {
-            case LVAL_FUNC:
-                if ((lval1->builtin != lval2->builtin)
-                        || (lval1->env != lval2->env)
-                        || (lval1->formals != lval2->formals)
-                        || (lval1->body != lval2->body)) {
-                    eq_flag = 0;
-                }
-                break;
-            case LVAL_NUM:
-                if (lval1->num != lval2->num) {
-                    eq_flag = 0;
-                }
-                break;
-            case LVAL_ERR:
-                if (strcmp(lval1->err, lval2->err) != 0) {
-                    eq_flag = 0; // or return strcmp value itself
-                }
-                break;
-            case LVAL_SYM:
-                if (strcmp(lval1->sym, lval2->sym) != 0) {
-                    eq_flag = 0; // or return strcmp value itself
-                }
-                break;
-            case LVAL_SEXPR:
-            case LVAL_QEXPR: // Compares addresses
-                if ((lval1->count != lval2->count)
-                        || (lval1->cell != lval2->cell)) {
-                    eq_flag = 0;
-                }
-                break;
-        }
+    if (lval1->type != lval2->type) { return 0; }
+
+    switch (lval1->type) {
+        case LVAL_FUNC:
+            if (lval1->builtin || lval2->builtin) {
+                return lval1->builtin == lval2->builtin;
+            }
+            return lval_eq(lval1->formals, lval2->formals)
+                && lval_eq(lval1->body, lval2->body);
+        case LVAL_NUM: return lval1->num == lval2->num;
+        case LVAL_ERR: return (strcmp(lval1->err, lval2->err) == 0);
+        case LVAL_SYM: return (strcmp(lval1->sym, lval2->sym) == 0);
+        case LVAL_SEXPR:
+        case LVAL_QEXPR: // Compares addresses
+            if (lval1->count != lval2->count) { return 0; }
+            int i;
+            for (i = 0; i < lval1->count; i++) {
+                if (!lval_eq(lval1->cell[i], lval2->cell[i])) { return 0; }
+            }
+            return 1;
     }
-    return lval_num(eq_flag);
+    return 0;
 }
 
 // Check bool value of lval, and returns an int 0 or 1
