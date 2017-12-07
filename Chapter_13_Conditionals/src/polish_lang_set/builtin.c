@@ -8,6 +8,12 @@ void lenv_add_builtins(lenv *env) {
     // Comparisons
     lenv_add_builtin(env, "or", builtin_or);
     lenv_add_builtin(env, "and", builtin_and);
+    lenv_add_builtin(env, "==", builtin_eq);
+    lenv_add_builtin(env, ">", builtin_greater);
+    lenv_add_builtin(env, ">=", builtin_greater_eq);
+    lenv_add_builtin(env, "<", builtin_lesser);
+    lenv_add_builtin(env, "<=", builtin_lesser_eq);
+    lenv_add_builtin(env, "bool", builtin_bool);
 
     lenv_add_builtin(env, "list", builtin_list);
     lenv_add_builtin(env, "head", builtin_head);
@@ -96,14 +102,14 @@ lval *builtin_lambda(lenv *env, lval *args) {
 /* CONDITIONALS */
 
 lval *builtin_or(lenv *env, lval *args) {
-    return builtin_bool(env, args, "or");
+    return builtin_compare_bool(env, args, "or");
 }
 
 lval *builtin_and(lenv *env, lval *args) {
-    return builtin_bool(env, args, "and");
+    return builtin_compare_bool(env, args, "and");
 }
 
-lval *builtin_bool(lenv *env, lval *args, char *func) {
+lval *builtin_compare_bool(lenv *env, lval *args, char *func) {
     // Check all arguments are booleans (0 or 1)
     int i;
     for (i = 0; i < args->count; i++) {
@@ -128,77 +134,78 @@ lval *builtin_bool(lenv *env, lval *args, char *func) {
     lval_free(args);
     return result;
 }
-/*
-lval *builtin_bool_eq(lenv *env, lval *args) {
-
-    int i;
-    for (i = 0; i < args->count; i++) {
-        LASSERT_NUM(args, func,)
-    }
-}
-
-
-lval *builtin_greater(lenv *env, lval *args) {
-    return builtin_compare(env, args, ">");
-}
-
-lval *builtin_greater_eq(lenv *env, lval *args) {
-    return builtin_compare(env, args, ">=");
-}
-
-lval *builtin_lesser(lenv *env, lval *args) {
-    return builtin_compare(env, args, "<");
-}
-
-lval *builtin_lesser_eq(lenv *env, lval *args) {
-    return builtin_compare(env, args, "<");
-}
-
-lval *builtin_compare(lenv *env, lval *args, char *func) {
-    LASSERT_NUM(args, "")
-}
 
 lval *builtin_eq(lenv *env, lval *args) {
 
-    LASSERT_NUM(args, "==", 2);
-    LASSERT_TYPE(args, "==", 0, LVAL_NUM);
-    LASSERT_TYPE(args, "==", 1, LVAL_NUM);
+    if (args->count == 0) {
+        lval_free(args);
+        return lval_err("Function '==' must have at least one argument.");
+    }
+
+    int eq_flag = 1;
+    lval *control = lval_pop(args, 0);
+    while (args->count) {
+        lval *next = lval_pop(args, 0);
+        if (!lval_bool(lval_eq(control, next))) {
+            lval_free(next);
+            eq_flag = 0;
+            break;
+        }
+        lval_free(next);
+    }
+    lval_free(control);
+    return lval_num(eq_flag);
+}
+
+lval *builtin_compare_num(lenv *env, lval *args, char *func) {
+
+    LASSERT_NUM(args, func, 2);
+    LASSERT_TYPE(args, func, 0, LVAL_NUM);
+    LASSERT_TYPE(args, func, 1, LVAL_NUM);
 
     lval *left = lval_pop(args, 0);
     lval *right = lval_extract(args, 0);
-    int result = left == right ? 1 : 0;
+    int result = 0;
+    if (strcmp(func, ">") == 0) {
+        result = left->num > right->num;
+    } else if (strcmp(func, ">=") == 0) {
+        result = left->num >= right->num;
+    } else if (strcmp(func, "<") == 0) {
+        result = left->num < right->num;
+    } else if (strcmp(func, "<=") == 0) {
+        result = left->num <= right->num;
+    } else {
+        lval_free(left);
+        lval_free(right);
+        return lval_err("Internal reference error in builtin_compare. Got %s.", func);
+    }
+
     lval_free(left);
     lval_free(right);
     return lval_num(result);
 }
 
-lval *builtin_greater_than(lenv *env, lval *args) {
+lval *builtin_greater(lenv *env, lval *args) {
+    return builtin_compare_num(env, args, ">");
+}
 
-    LASSERT_NUM(args, ">", 2);
-    lval_check_get_replace(env, args->cell[0]);
-    LASSERT_TYPE(args, ">", 0, LVAL_NUM);
-    LASSERT_TYPE(args, ">", 1, LVAL_NUM);
+lval *builtin_greater_eq(lenv *env, lval *args) {
+    return builtin_compare_num(env, args, ">=");
+}
 
-    lval *left = lval_pop(args, 0);
-    lval *right = lval_extract(args, 0);
-    int result = left > right ? 1 : 0;
-    lval_free(left);
-    lval_free(right);
+lval *builtin_lesser(lenv *env, lval *args) {
+    return builtin_compare_num(env, args, "<");
+}
+
+lval *builtin_lesser_eq(lenv *env, lval *args) {
+    return builtin_compare_num(env, args, "<=");
+}
+
+lval *builtin_bool(lenv *env, lval *args) {
+    int result = lval_bool(args); // returns int bool!
+    lval_free(args);
     return lval_num(result);
 }
-*/
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

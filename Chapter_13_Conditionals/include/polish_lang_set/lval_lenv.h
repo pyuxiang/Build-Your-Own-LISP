@@ -75,7 +75,9 @@ lval *lval_qexpr(void);
 void lval_free(lval *);
 
 // lval methods
+int lval_bool(lval *);
 char *lval_type_name(int);
+lval *lval_eq(lval *, lval *);
 lval *lval_add(lval *, lval *);
 lval *lval_insert(lval *, lval *, int);
 lval *lval_pop(lval *, int);

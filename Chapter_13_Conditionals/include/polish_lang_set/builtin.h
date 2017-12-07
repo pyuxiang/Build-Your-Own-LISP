@@ -37,9 +37,16 @@ void lenv_add_builtins(lenv *);
         "Function '%s' passed non-boolean at argument %d. Expected 0 or 1 instead of %d.", \
         func, index, args->cell[index]->num);
 
+lval *builtin_compare_bool(lenv *, lval *, char *);
 lval *builtin_or(lenv *, lval *);
 lval *builtin_and(lenv *, lval *);
-lval *builtin_bool(lenv *, lval *, char *);
+lval *builtin_eq(lenv *, lval *);
+lval *builtin_compare_num(lenv *, lval *, char *);
+lval *builtin_greater(lenv *, lval *);
+lval *builtin_greater_eq(lenv *, lval *);
+lval *builtin_lesser(lenv *, lval *);
+lval *builtin_lesser_eq(lenv *, lval *);
+lval *builtin_bool(lenv *, lval *);
 
 lval *builtin_add(lenv *, lval *);
 lval *builtin_sub(lenv *, lval *);

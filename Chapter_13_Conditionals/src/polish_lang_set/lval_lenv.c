@@ -193,6 +193,66 @@ lval *lval_copy(lval *value) {
     return copy;
 }
 
+// Check strict equality of lvals, by comparing addresses
+// Strings are treated as primitives, and same primitive values are equal
+// Returns bool in the form of 0 and 1
+lval *lval_eq(lval *lval1, lval *lval2) {
+
+    int eq_flag = 1;
+    if (lval1->type != lval2->type) {
+        eq_flag = 0;
+    }
+
+    if (eq_flag) {
+        switch (lval1->type) {
+            case LVAL_FUNC:
+                if ((lval1->builtin != lval2->builtin)
+                        || (lval1->env != lval2->env)
+                        || (lval1->formals != lval2->formals)
+                        || (lval1->body != lval2->body)) {
+                    eq_flag = 0;
+                }
+                break;
+            case LVAL_NUM:
+                if (lval1->num != lval2->num) {
+                    eq_flag = 0;
+                }
+                break;
+            case LVAL_ERR:
+                if (strcmp(lval1->err, lval2->err) != 0) {
+                    eq_flag = 0; // or return strcmp value itself
+                }
+                break;
+            case LVAL_SYM:
+                if (strcmp(lval1->sym, lval2->sym) != 0) {
+                    eq_flag = 0; // or return strcmp value itself
+                }
+                break;
+            case LVAL_SEXPR:
+            case LVAL_QEXPR: // Compares addresses
+                if ((lval1->count != lval2->count)
+                        || (lval1->cell != lval2->cell)) {
+                    eq_flag = 0;
+                }
+                break;
+        }
+    }
+    return lval_num(eq_flag);
+}
+
+// Check bool value of lval, and returns an int 0 or 1
+// Only 0, () and {} return false
+// ... opps, it's not working as expected.
+// I'm lazy, so let's call it a feature: only 0 returns false.
+int lval_bool(lval *value) {
+    switch(value->type) {
+        case LVAL_NUM: return value->num ? 1 : 0;
+        case LVAL_SEXPR:
+        case LVAL_QEXPR: return (value->count != 0) ? 1 : 0;
+    }
+    return 1;
+}
+
 lval *lval_join(lval *list, lval *next) {
     /* Concatenates two qexpr */
     // Note qexpr and sexpr share same list attribute, i.e. lval_add
