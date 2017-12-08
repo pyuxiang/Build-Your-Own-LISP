@@ -25,6 +25,7 @@ struct lval {
     long num; // successful num result (stores boolean as well);
     char *err; // runtime error code
     char *sym; // symbol string data
+    char *str;
 
     // Function types
     lbuiltin builtin;
@@ -62,7 +63,7 @@ void lenv_add_builtin_func(lenv *, char *, lbuiltin);
 void lenv_add_builtin_const(lenv *, char *, lval *);
 
 // lval types
-enum { LVAL_NUM, LVAL_ERR, LVAL_SYM,
+enum { LVAL_NUM, LVAL_ERR, LVAL_SYM, LVAL_STR,
        LVAL_FUNC, LVAL_SEXPR, LVAL_QEXPR, LVAL_BOOL };
 
 // lval constructors and deconstructors
@@ -70,6 +71,7 @@ lval *lval_num(long);
 lval *lval_bool(char);
 lval *lval_err(char *, ...);
 lval *lval_sym(char *);
+lval *lval_str(char *);
 lval *lval_func(lbuiltin);
 lval *lval_lambda(lval *, lval *);
 lval *lval_sexpr(void);
@@ -91,9 +93,11 @@ lval *lval_join(lval *, lval *);
 void lval_expr_print(lval *, char, char);
 void lval_print(lval *);
 void lval_println(lval *);
+void lval_print_str(lval *);
 
 // lval read
 lval *lval_read(mpc_ast_t *);
+lval *lval_read_str(mpc_ast_t *);
 
 // Evaluate (sexpr)
 lval *lval_eval(lenv *, lval *);

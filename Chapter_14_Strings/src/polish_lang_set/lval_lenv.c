@@ -19,6 +19,7 @@ char *lval_type_name(int enum_value) {
         case LVAL_FUNC: return "Function";
         case LVAL_ERR: return "Error";
         case LVAL_SYM: return "Symbol";
+        case LVAL_STR: return "String";
         case LVAL_SEXPR: return "S-expression";
         case LVAL_QEXPR: return "Q-expression";
     }
@@ -63,6 +64,14 @@ lval *lval_sym(char *symbol_str) {
     value->type = LVAL_SYM;
     value->sym = malloc(strlen(symbol_str) + 1);
     strcpy(value->sym, symbol_str);
+    return value;
+}
+
+lval *lval_str(char *str) {
+    lval *value = malloc(sizeof(lval));
+    value->type = LVAL_STR;
+    value->str = malloc(strlen(str) + 1);
+    strcpy(value->str, str);
     return value;
 }
 
@@ -125,6 +134,7 @@ void lval_free(lval *value) {
         case LVAL_NUM: break;
         case LVAL_ERR: free(value->err); break;
         case LVAL_SYM: free(value->sym); break;
+        case LVAL_STR: free(value->str); break;
         case LVAL_QEXPR:
         case LVAL_SEXPR: {
             int i;
@@ -190,6 +200,10 @@ lval *lval_copy(lval *value) {
             copy->sym = malloc(strlen(value->sym) + 1);
             strcpy(copy->sym, value->sym);
             break;
+        case LVAL_STR:
+            copy->str = malloc(strlen(value->str) + 1);
+            strcpy(copy->str, value->str);
+            break;
         case LVAL_SEXPR:
         case LVAL_QEXPR:
             copy->count = value->count;
@@ -227,6 +241,7 @@ int lval_eq(lval *lval1, lval *lval2) {
         case LVAL_NUM: return lval1->num == lval2->num;
         case LVAL_ERR: return (strcmp(lval1->err, lval2->err) == 0);
         case LVAL_SYM: return (strcmp(lval1->sym, lval2->sym) == 0);
+        case LVAL_STR: return (strcmp(lval1->str, lval2->str) == 0);
         case LVAL_SEXPR:
         case LVAL_QEXPR: // Compares addresses
             if (lval1->count != lval2->count) { return 0; }
@@ -300,6 +315,8 @@ void lval_print(lval *value) {
         case LVAL_NUM: printf("%li", value->num); break;
         case LVAL_ERR: printf("Error: %s", value->err); break;
         case LVAL_SYM: printf("%s", value->sym); break;
+        case LVAL_STR: lval_print_str(value); break;
+            // To escape characters since they are encoded..., '\', 'n', ...
         case LVAL_FUNC:
             if (value->builtin == NULL) {
                 printf("(\\ "); lval_print(value->formals);
@@ -318,6 +335,26 @@ void lval_println(lval *value) {
     putchar('\n');
 }
 
+void lval_print_str(lval *value) {
+    char *escaped = malloc(strlen(value->str) + 1);
+    strcpy(escaped, value->str);
+    escaped = mpcf_escape(escaped); // mpc function
+    printf("\"%s\"", escaped);
+    free(escaped);
+}
+
+lval *lval_read_str(mpc_ast_t *node) {
+    // Removing front and back quotes "
+    node->contents[strlen(node->contents) - 1] = '\0';
+    char *unescaped = malloc(strlen(node->contents+1) + 1);
+    // Note: node->contents is a pointer
+    // char *unescaped = malloc(strlen(node->contents));
+    strcpy(unescaped, node->contents+1);
+    lval *str = lval_str(unescaped);
+    free(unescaped);
+    return str;
+}
+
 
 
 // ast == Abstract Syntax Tree
@@ -334,6 +371,9 @@ lval *lval_read(mpc_ast_t *node) {
     }
     if (strstr(node->tag, "symbol")) {
         return lval_sym(node->contents);
+    }
+    if (strstr(node->tag, "string")) {
+        return lval_read_str(node);
     }
 
     // Create empty sexpr list if root (>) or sexpr

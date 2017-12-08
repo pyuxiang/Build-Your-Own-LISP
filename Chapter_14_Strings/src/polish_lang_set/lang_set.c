@@ -13,6 +13,7 @@ parser_set_t *polish_notation_set(void) {
     // Parsers
     mpc_parser_t *Number = mpc_new("number");
     mpc_parser_t *Symbol = mpc_new("symbol");
+    mpc_parser_t *String = mpc_new("string");
     mpc_parser_t *Sexpr = mpc_new("sexpr");
     mpc_parser_t *Qexpr = mpc_new("qexpr");
     mpc_parser_t *Expr = mpc_new("expr");
@@ -20,16 +21,20 @@ parser_set_t *polish_notation_set(void) {
 
     // Why does "%%" nor '%%' work here?
     // Why does '%' work even though it is a flag? Direct str reading?
+    // Note \\ is a single backslash in this string, while
+    // \\\\ is a single backslash in this regex
     mpca_lang(MPCA_LANG_DEFAULT,
         "                                                      \
             number : /-?[0-9]+/ ;                              \
-            symbol : /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&%^]+/ ;        \
+            symbol : /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&%^]+/ ;      \
+            string : /\"(\\\\.|[^\"])*\"/ ;                    \
             sexpr  : '(' <expr>* ')' ;                         \
             qexpr  : '{' <expr>* '}' ;                         \
-            expr   : <number> | <symbol> | <sexpr> | <qexpr> ; \
+            expr   : <number> | <symbol> | <string>            \
+                   | <sexpr> | <qexpr> ; \
             lispy  : /^/ <expr>* /$/ ;                         \
         ",
-        Number, Symbol, Sexpr, Qexpr, Expr, Lispy);
+        Number, Symbol, String, Sexpr, Qexpr, Expr, Lispy);
 
-    return create_parser_set(6, Number, Symbol, Sexpr, Qexpr, Expr, Lispy);
+    return create_parser_set(7, Number, Symbol, String, Sexpr, Qexpr, Expr, Lispy);
 }
