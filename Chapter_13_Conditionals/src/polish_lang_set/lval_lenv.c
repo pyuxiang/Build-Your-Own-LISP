@@ -15,6 +15,7 @@
 char *lval_type_name(int enum_value) {
     switch (enum_value) {
         case LVAL_NUM: return "Number";
+        case LVAL_BOOL: return "Boolean";
         case LVAL_FUNC: return "Function";
         case LVAL_ERR: return "Error";
         case LVAL_SYM: return "Symbol";
@@ -29,6 +30,13 @@ lval *lval_num(long result) {
     lval *value = malloc(sizeof(lval));
     value->type = LVAL_NUM;
     value->num = result;
+    return value;
+}
+
+lval *lval_bool(char boolean) {
+    lval *value = malloc(sizeof(lval));
+    value->type = LVAL_BOOL;
+    value->num = boolean ? 1 : 0;
     return value;
 }
 
@@ -113,6 +121,7 @@ void lval_free(lval *value) {
                 lval_free(value->body);
             }
             break;
+        case LVAL_BOOL:
         case LVAL_NUM: break;
         case LVAL_ERR: free(value->err); break;
         case LVAL_SYM: free(value->sym); break;
@@ -171,6 +180,7 @@ lval *lval_copy(lval *value) {
                 copy->builtin = value->builtin;
             }
             break;
+        case LVAL_BOOL:
         case LVAL_NUM: copy->num = value->num; break;
         case LVAL_ERR:
             copy->err = malloc(strlen(value->err) + 1);
@@ -213,6 +223,7 @@ int lval_eq(lval *lval1, lval *lval2) {
             }
             return lval_eq(lval1->formals, lval2->formals)
                 && lval_eq(lval1->body, lval2->body);
+        case LVAL_BOOL:
         case LVAL_NUM: return lval1->num == lval2->num;
         case LVAL_ERR: return (strcmp(lval1->err, lval2->err) == 0);
         case LVAL_SYM: return (strcmp(lval1->sym, lval2->sym) == 0);
@@ -230,13 +241,12 @@ int lval_eq(lval *lval1, lval *lval2) {
 
 // Check bool value of lval, and returns an int 0 or 1
 // Only 0, () and {} return false
-// ... opps, it's not working as expected.
-// I'm lazy, so let's call it a feature: only 0 returns false.
-int lval_bool(lval *value) {
+int lval_bool_value(lval *value) {
     switch(value->type) {
+        case LVAL_BOOL:
         case LVAL_NUM: return value->num ? 1 : 0;
         case LVAL_SEXPR:
-        case LVAL_QEXPR: return (value->count != 0) ? 1 : 0;
+        case LVAL_QEXPR: return value->count != 0;
     }
     return 1;
 }
@@ -286,6 +296,7 @@ void lval_expr_print(lval *expr, char open, char close) {
 
 void lval_print(lval *value) {
     switch (value->type) {
+        case LVAL_BOOL:
         case LVAL_NUM: printf("%li", value->num); break;
         case LVAL_ERR: printf("Error: %s", value->err); break;
         case LVAL_SYM: printf("%s", value->sym); break;
@@ -560,7 +571,7 @@ void lenv_print_dir(lenv *env) {
     }
 }
 
-void lenv_add_builtin(lenv *env, char *name, lbuiltin func) {
+void lenv_add_builtin_func(lenv *env, char *name, lbuiltin func) {
     lval *key = lval_sym(name);
     lval *value = lval_func(func);
     lenv_put(env, key, value);

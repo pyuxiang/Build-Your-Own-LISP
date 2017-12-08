@@ -6,6 +6,16 @@
 lval *builtin_op(lenv *, lval *, char *);
 void lenv_add_builtins(lenv *);
 
+// Numeric constants
+// Block statement to avoid redefinition error during simultaneous defn
+#define LENV_DEF_CONST(env, name, input, constructor) { \
+    lval *key = lval_sym(name); \
+    lval *value = constructor(input); \
+    lenv_put(env, key, value); \
+    lval_free(key); \
+    lval_free(value); \
+}
+
 // ## removes leading comma when no args passed
 #define LASSERT(args, cond, format, ...) \
     if (!(cond)) { \
@@ -27,15 +37,6 @@ void lenv_add_builtins(lenv *);
 #define LASSERT_NOT_EMPTY(args, func, index) \
     LASSERT(args, args->cell[index]->count != 0, \
         "Function '%s' passed empty {} at argument %d.", func, index);
-
-// Checks if numbers are booleans 1 and 0
-// long values can also be printed with %d
-#define LASSERT_BOOL(args, func, index) \
-    LASSERT_TYPE(args, func, index, LVAL_NUM); \
-    long num = args->cell[index]->num; \
-    LASSERT(args, (num == 0)||(num == 1), \
-        "Function '%s' passed non-boolean at argument %d. Expected 0 or 1 instead of %d.", \
-        func, index, args->cell[index]->num);
 
 lval *builtin_compare_bool(lenv *, lval *, char *);
 lval *builtin_or(lenv *, lval *);

@@ -1,40 +1,50 @@
+// Some ideas: To implement extensibility of numbers?
+//             i.e. supporting numbers larger than declared type.
+
 #include "builtin.h"
 
 void lenv_add_builtins(lenv *env) {
-    lenv_add_builtin(env, "def", builtin_def); // Global assignment
-    lenv_add_builtin(env, "=", builtin_put); // Local assignment
-    lenv_add_builtin(env, "\\", builtin_lambda);
+    lenv_add_builtin_func(env, "def", builtin_def); // Global assignment
+    lenv_add_builtin_func(env, "=", builtin_put); // Local assignment
+    lenv_add_builtin_func(env, "\\", builtin_lambda);
 
     // Comparisons
-    lenv_add_builtin(env, "or", builtin_or);
-    lenv_add_builtin(env, "and", builtin_and);
-    lenv_add_builtin(env, "==", builtin_eq);
-    lenv_add_builtin(env, "!=", builtin_neq);
-    lenv_add_builtin(env, ">", builtin_greater);
-    lenv_add_builtin(env, ">=", builtin_greater_eq);
-    lenv_add_builtin(env, "<", builtin_lesser);
-    lenv_add_builtin(env, "<=", builtin_lesser_eq);
-    lenv_add_builtin(env, "bool", builtin_bool);
-    lenv_add_builtin(env, "!", builtin_negate);
-    lenv_add_builtin(env, "if", builtin_if);
+    lenv_add_builtin_func(env, "or", builtin_or);
+    lenv_add_builtin_func(env, "and", builtin_and);
+    lenv_add_builtin_func(env, "==", builtin_eq);
+    lenv_add_builtin_func(env, "!=", builtin_neq);
+    lenv_add_builtin_func(env, ">", builtin_greater);
+    lenv_add_builtin_func(env, ">=", builtin_greater_eq);
+    lenv_add_builtin_func(env, "<", builtin_lesser);
+    lenv_add_builtin_func(env, "<=", builtin_lesser_eq);
+    lenv_add_builtin_func(env, "bool", builtin_bool);
+    lenv_add_builtin_func(env, "!", builtin_negate);
+    lenv_add_builtin_func(env, "if", builtin_if);
 
-    lenv_add_builtin(env, "list", builtin_list);
-    lenv_add_builtin(env, "head", builtin_head);
-    lenv_add_builtin(env, "tail", builtin_tail);
-    lenv_add_builtin(env, "eval", builtin_eval);
-    lenv_add_builtin(env, "join", builtin_join);
-    lenv_add_builtin(env, "cons", builtin_cons);
-    lenv_add_builtin(env, "len", builtin_len);
-    lenv_add_builtin(env, "init", builtin_init);
+    lenv_add_builtin_func(env, "list", builtin_list);
+    lenv_add_builtin_func(env, "head", builtin_head);
+    lenv_add_builtin_func(env, "tail", builtin_tail);
+    lenv_add_builtin_func(env, "eval", builtin_eval);
+    lenv_add_builtin_func(env, "join", builtin_join);
+    lenv_add_builtin_func(env, "cons", builtin_cons);
+    lenv_add_builtin_func(env, "len", builtin_len);
+    lenv_add_builtin_func(env, "init", builtin_init);
 
-    lenv_add_builtin(env, "+", builtin_add);
-    lenv_add_builtin(env, "-", builtin_sub);
-    lenv_add_builtin(env, "*", builtin_mul);
-    lenv_add_builtin(env, "/", builtin_div);
-    lenv_add_builtin(env, "%", builtin_mod);
-    lenv_add_builtin(env, "^", builtin_pow);
-    lenv_add_builtin(env, "max", builtin_max);
-    lenv_add_builtin(env, "min", builtin_min);
+    lenv_add_builtin_func(env, "+", builtin_add);
+    lenv_add_builtin_func(env, "-", builtin_sub);
+    lenv_add_builtin_func(env, "*", builtin_mul);
+    lenv_add_builtin_func(env, "/", builtin_div);
+    lenv_add_builtin_func(env, "%", builtin_mod);
+    lenv_add_builtin_func(env, "^", builtin_pow);
+    lenv_add_builtin_func(env, "max", builtin_max);
+    lenv_add_builtin_func(env, "min", builtin_min);
+
+    // Constants!
+    LENV_DEF_CONST(env, "true", 1, lval_bool);
+    LENV_DEF_CONST(env, "false", 0, lval_bool);
+    LENV_DEF_CONST(env, "int_max", 2147483647, lval_num);
+    LENV_DEF_CONST(env, "int_min", -2147483648, lval_num);
+
 }
 
 lval *builtin_def(lenv *env, lval *args) {
@@ -113,10 +123,10 @@ lval *builtin_and(lenv *env, lval *args) {
 }
 
 lval *builtin_compare_bool(lenv *env, lval *args, char *func) {
-    // Check all arguments are booleans (0 or 1)
+    // Check all arguments are booleans
     int i;
     for (i = 0; i < args->count; i++) {
-        LASSERT_BOOL(args, func, i);
+        LASSERT_TYPE(args, func, i, LVAL_BOOL);
     }
 
     lval *result = lval_pop(args, 0);
@@ -130,7 +140,7 @@ lval *builtin_compare_bool(lenv *env, lval *args, char *func) {
             lval_free(args);
             lval_free(result);
             lval_free(next);
-            return lval_err("Internal reference error in builtin_bool. Got %s.", func);
+            return lval_err("Internal reference error in builtin_compare_bool. Got %s.", func);
         }
         lval_free(next);
     }
@@ -138,6 +148,7 @@ lval *builtin_compare_bool(lenv *env, lval *args, char *func) {
     return result;
 }
 
+// All types
 lval *builtin_eq(lenv *env, lval *args) {
 
     if (args->count == 0) {
@@ -234,19 +245,23 @@ lval *builtin_lesser_eq(lenv *env, lval *args) {
     return builtin_compare_num(env, args, "<=");
 }
 
+// Previously not working because accessing args type rather than cell type
 lval *builtin_bool(lenv *env, lval *args) {
-    int result = lval_bool(args); // returns int bool!
-    lval_free(args);
-    return lval_num(result);
+    LASSERT_NUM(args, "bool", 1);
+
+    lval *value = lval_extract(args, 0);
+    char bool_flag = lval_bool_value(value);
+    lval_free(value);
+    return lval_bool(bool_flag);
 }
 
 lval *builtin_negate(lenv *env, lval *args) {
 
     LASSERT_NUM(args, "!", 1);
-    LASSERT_BOOL(args, "!", 0);
+    LASSERT_TYPE(args, "!", 0, LVAL_BOOL);
 
     lval *value = lval_extract(args, 0);
-    int negation = lval_bool(value) ? 0 : 1;
+    int negation = lval_bool_value(value) ? 0 : 1;
     lval_free(value);
     return lval_num(negation);
 }
@@ -255,7 +270,12 @@ lval *builtin_negate(lenv *env, lval *args) {
 lval *builtin_if(lenv *env, lval *args) {
 
     LASSERT_NUM(args, "if", 3);
-    LASSERT_TYPE(args, "if", 0, LVAL_NUM);
+    if (args->cell[0]->type == LVAL_NUM) {
+        // Convert to bool
+        args->cell[0]->num = lval_bool_value(args->cell[0]);
+        args->cell[0]->type = LVAL_BOOL;
+    }
+    LASSERT_TYPE(args, "if", 0, LVAL_BOOL);
     LASSERT_TYPE(args, "if", 1, LVAL_QEXPR);
     LASSERT_TYPE(args, "if", 2, LVAL_QEXPR);
 
@@ -270,6 +290,7 @@ lval *builtin_if(lenv *env, lval *args) {
     lval_free(args);
     return result;
 }
+
 
 
 /* MATHEMATICAL OPERATIONS */

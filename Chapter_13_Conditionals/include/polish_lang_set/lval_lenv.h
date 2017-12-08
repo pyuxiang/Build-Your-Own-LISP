@@ -22,7 +22,7 @@ struct lval {
     int type; // specifies type of lval and field to access
 
     // Basic types
-    long num; // successful num result
+    long num; // successful num result (stores boolean as well);
     char *err; // runtime error code
     char *sym; // symbol string data
 
@@ -58,14 +58,16 @@ void lenv_def(lenv *, lval *, lval *);
 void lval_check_get_replace(lenv *, lval *);
 void lval_get_replace(lenv *, lval *);
 void lenv_print_dir(lenv *);
-void lenv_add_builtin(lenv *, char *, lbuiltin);
+void lenv_add_builtin_func(lenv *, char *, lbuiltin);
+void lenv_add_builtin_const(lenv *, char *, lval *);
 
 // lval types
 enum { LVAL_NUM, LVAL_ERR, LVAL_SYM,
-       LVAL_FUNC, LVAL_SEXPR, LVAL_QEXPR };
+       LVAL_FUNC, LVAL_SEXPR, LVAL_QEXPR, LVAL_BOOL };
 
 // lval constructors and deconstructors
 lval *lval_num(long);
+lval *lval_bool(char);
 lval *lval_err(char *, ...);
 lval *lval_sym(char *);
 lval *lval_func(lbuiltin);
@@ -75,7 +77,7 @@ lval *lval_qexpr(void);
 void lval_free(lval *);
 
 // lval methods
-int lval_bool(lval *);
+int lval_bool_value(lval *);
 char *lval_type_name(int);
 int lval_eq(lval *, lval *);
 lval *lval_add(lval *, lval *);
