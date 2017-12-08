@@ -4,6 +4,11 @@
 #include "builtin.h"
 
 void lenv_add_builtins(lenv *env) {
+
+    lenv_add_builtin_func(env, "load", builtin_load);
+    lenv_add_builtin_func(env, "error", builtin_error);
+    lenv_add_builtin_func(env, "print", builtin_print);
+
     lenv_add_builtin_func(env, "def", builtin_def); // Global assignment
     lenv_add_builtin_func(env, "=", builtin_put); // Local assignment
     lenv_add_builtin_func(env, "\\", builtin_lambda);
@@ -46,6 +51,64 @@ void lenv_add_builtins(lenv *env) {
     LENV_DEF_CONST(env, "int_min", -2147483648, lval_num);
 
 }
+
+lval *builtin_load(lenv *env, lval *args) {
+    LASSERT_NUM(args, "load", 1);
+    LASSERT_TYPE(args, "load", 0, LVAL_STR);
+
+    mpc_result_t result;
+    // Check parsing success
+    if (mpc_parse_contents(args->cell[0]->str, Lispy, &result)) {
+        lval *expr = lval_read(result.output);
+        mpc_ast_delete(result.output);
+
+        // Evaluate string
+        while (expr->count) {
+            lval *value = lval_eval(env, lval_pop(expr, 0));
+            if (value->type == LVAL_ERR) {
+                lval_println(value);
+            }
+            lval_free(value);
+        }
+
+        lval_free(expr);
+        lval_free(args);
+        return lval_sexpr();
+    } else {
+        // Get parse error as string and return lval error
+        char *err_msg = mpc_err_string(result.error);
+        mpc_err_delete(result.error);
+        lval *err = lval_err("Could not load library\n%s", err_msg);
+        free(err_msg);
+        lval_free(args);
+        return err;
+    }
+}
+
+// Allow users to print
+lval *builtin_print(lenv *env, lval *args) {
+    int i;
+    for (i = 0; i < args->count; i++) {
+        lval_print(args->cell[i]);
+        putchar(' ');
+    }
+    putchar('\n');
+    lval_free(args);
+    return lval_sexpr();
+}
+
+// Allow user to define an error message
+lval *builtin_error(lenv *env, lval *args) {
+    LASSERT_NUM(args, "error", 1);
+    LASSERT_TYPE(args, "error", 0, LVAL_STR);
+
+    lval *err = lval_err(args->cell[0]->str);
+    lval_free(args);
+    return err;
+}
+
+
+
 
 lval *builtin_def(lenv *env, lval *args) {
     return builtin_var(env, args, "def");

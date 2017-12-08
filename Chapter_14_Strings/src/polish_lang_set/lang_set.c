@@ -14,6 +14,7 @@ parser_set_t *polish_notation_set(void) {
     mpc_parser_t *Number = mpc_new("number");
     mpc_parser_t *Symbol = mpc_new("symbol");
     mpc_parser_t *String = mpc_new("string");
+    mpc_parser_t *Comment = mpc_new("comment");
     mpc_parser_t *Sexpr = mpc_new("sexpr");
     mpc_parser_t *Qexpr = mpc_new("qexpr");
     mpc_parser_t *Expr = mpc_new("expr");
@@ -28,13 +29,14 @@ parser_set_t *polish_notation_set(void) {
             number : /-?[0-9]+/ ;                              \
             symbol : /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&%^]+/ ;      \
             string : /\"(\\\\.|[^\"])*\"/ ;                    \
+            comment :/;[^\\r\\n]*/ ;                           \
             sexpr  : '(' <expr>* ')' ;                         \
             qexpr  : '{' <expr>* '}' ;                         \
             expr   : <number> | <symbol> | <string>            \
                    | <sexpr> | <qexpr> ; \
             lispy  : /^/ <expr>* /$/ ;                         \
         ",
-        Number, Symbol, String, Sexpr, Qexpr, Expr, Lispy);
+        Number, Symbol, String, Comment, Sexpr, Qexpr, Expr, Lispy);
 
-    return create_parser_set(7, Number, Symbol, String, Sexpr, Qexpr, Expr, Lispy);
+    return create_parser_set(8, Number, Symbol, String, Comment, Sexpr, Qexpr, Expr, Lispy);
 }

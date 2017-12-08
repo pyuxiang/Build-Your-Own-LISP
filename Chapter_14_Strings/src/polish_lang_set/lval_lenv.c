@@ -389,6 +389,8 @@ lval *lval_read(mpc_ast_t *node) {
     // Ignore invalid expressions (parentheses, regex start, end)
     int i;
     for (i = 0; i < node->children_num; i++) {
+        // Ignore comments
+        if (strstr(node->children[i]->tag, "comment")) continue;
         if (strcmp(node->children[i]->contents, "(") == 0) continue;
         if (strcmp(node->children[i]->contents, ")") == 0) continue;
         if (strcmp(node->children[i]->contents, "{") == 0) continue;

@@ -1,6 +1,7 @@
 #ifndef builtin_h
 #define builtin_h
 
+#include "lang_set.h" // For Parser to load
 #include "lval_lenv.h"
 
 lval *builtin_op(lenv *, lval *, char *);
@@ -37,6 +38,10 @@ void lenv_add_builtins(lenv *);
 #define LASSERT_NOT_EMPTY(args, func, index) \
     LASSERT(args, args->cell[index]->count != 0, \
         "Function '%s' passed empty {} at argument %d.", func, index);
+
+lval *builtin_load(lenv *, lval *);
+lval *builtin_print(lenv *, lval *);
+lval *builtin_error(lenv *, lval *);
 
 lval *builtin_compare_bool(lenv *, lval *, char *);
 lval *builtin_or(lenv *, lval *);
